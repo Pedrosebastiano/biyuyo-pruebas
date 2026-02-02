@@ -100,10 +100,5 @@ async function scrapeBCV() {
   }
 }
 
-// Cron Jobs
-cron.schedule("0 6,9,18 * * *", () => {
-  scrapeBCV();
-});
 
-// Ejecución inmediata
 scrapeBCV();
