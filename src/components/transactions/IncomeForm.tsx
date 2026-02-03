@@ -16,11 +16,12 @@ import {
   type Category,
   type BusinessType,
 } from "@/data/incomeCategories";
-import { Camera, X, Loader2 } from "lucide-react"; // Agregué Loader2
+import { Camera, X, Loader2 } from "lucide-react";
 import { CurrencySelector, type Currency } from "./CurrencySelector";
 import { toast } from "sonner";
+import { useTransactions } from "@/hooks/useTransactions"; // Importamos el hook para refrescar
 
-// --- IMPORTANTE: PEGA AQUÍ TU USER ID DE SUPABASE ---
+// TU ID DE SUPABASE
 const USER_ID = "6221431c-7a17-4acc-9c01-43903e30eb21";
 
 interface IncomeFormProps {
@@ -28,13 +29,14 @@ interface IncomeFormProps {
 }
 
 export function IncomeForm({ onSubmit }: IncomeFormProps) {
+  const { refreshTransactions } = useTransactions(); // Extraemos la función de refresco
   const [selectedMacro, setSelectedMacro] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedBusiness, setSelectedBusiness] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<Currency>("USD");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Estado de carga
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,32 +78,28 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
   };
 
   const handleSubmit = async () => {
-    // 1. Obtener nombres legibles (Tu lógica original)
     const macroName =
       incomeMacroCategories.find((m) => m.id === selectedMacro)?.name || "";
     const categoryName =
       categories.find((c) => c.id === selectedCategory)?.name || "";
 
-    // Lógica para input manual vs select
     let businessName = selectedBusiness;
     if (selectedBusiness !== "custom") {
       const found = businessTypes.find((b) => b.name === selectedBusiness);
       if (found) businessName = found.name;
     }
 
-    // 2. Preparar el objeto para enviar al Backend
     const nuevoIngreso = {
       macrocategoria: macroName,
       categoria: categoryName,
-      negocio: businessName, // En la BD se guarda como 'negocio'
+      negocio: businessName,
       total_amount: parseFloat(amount),
-      user_id: USER_ID, // El ID obligatorio para Supabase
+      user_id: USER_ID,
     };
 
     setIsSubmitting(true);
 
     try {
-      // 3. Enviar a tu servidor Node.js
       const response = await fetch(
         "https://biyuyo-pruebas.onrender.com/incomes",
         {
@@ -110,26 +108,28 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(nuevoIngreso),
-        },
+        }
       );
 
       if (!response.ok) {
         throw new Error("Error al guardar en el servidor");
       }
 
-      const data = await response.json();
-      console.log("Guardado en Supabase:", data);
-
+      // ÉXITO
       toast.success("Ingreso registrado en la Nube exitosamente");
 
-      // Limpiar formulario
+      // 1. Refrescamos la lista de atrás
+      refreshTransactions();
+
+      // 2. Limpiamos formulario
       setSelectedMacro("");
       setSelectedCategory("");
       setSelectedBusiness("");
       setAmount("");
       setReceiptImage(null);
 
-      onSubmit(); // Cerrar modal o lo que haga esta función
+      // 3. Cerramos el modal
+      onSubmit();
     } catch (error) {
       console.error(error);
       toast.error("Error conectando con la base de datos");
@@ -143,11 +143,6 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
 
   return (
     <div className="space-y-4">
-      {/* ... (Todo tu JSX del formulario se mantiene igual hasta el botón final) ... */}
-
-      {/* Solo copio la parte de arriba para no hacer spam, los inputs son iguales */}
-      {/* ... Inputs de Macro, Categoria, Negocio, Monto e Imagen ... */}
-
       <div className="space-y-2">
         <Label htmlFor="income-macro-category">Macro Categoría</Label>
         <Select value={selectedMacro} onValueChange={handleMacroChange}>
@@ -219,7 +214,6 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
         {selectedBusiness === "custom" && (
           <Input
             placeholder="Escribe el tipo de fuente"
-            value="" // Ojo: Aquí tenías value="" fijo en tu código original, deberías manejar un estado extra si quieres input manual real, pero lo dejé como estaba.
             onChange={(e) => setSelectedBusiness(e.target.value || "custom")}
             className="border-2 mt-2"
           />
@@ -252,7 +246,6 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
         </div>
       </div>
 
-      {/* Botón de Submit Modificado */}
       <Button
         className="w-full"
         disabled={!isFormValid || isSubmitting}

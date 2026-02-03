@@ -16,23 +16,27 @@ import {
   type Category,
   type BusinessType,
 } from "@/data/categories";
-import { Camera, X } from "lucide-react";
+import { Camera, X, Loader2 } from "lucide-react";
 import { CurrencySelector, type Currency } from "./CurrencySelector";
 import { useTransactions } from "@/hooks/useTransactions";
 import { toast } from "sonner";
+
+// TU ID DE SUPABASE
+const USER_ID = "6221431c-7a17-4acc-9c01-43903e30eb21";
 
 interface ExpenseFormProps {
   onSubmit: () => void;
 }
 
 export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
-  const { addTransaction } = useTransactions();
+  const { refreshTransactions } = useTransactions();
   const [selectedMacro, setSelectedMacro] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedBusiness, setSelectedBusiness] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<Currency>("USD");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,29 +77,65 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const macroName =
       macroCategories.find((m) => m.id === selectedMacro)?.name || "";
     const categoryName =
       categories.find((c) => c.id === selectedCategory)?.name || "";
-    const businessName =
-      selectedBusiness === "custom"
-        ? selectedBusiness
-        : businessTypes.find((b) => b.name === selectedBusiness)?.name ||
-          selectedBusiness;
 
-    addTransaction({
-      type: "expense",
-      macroCategory: macroName,
-      category: categoryName,
-      business: businessName,
-      amount: parseFloat(amount),
-      currency,
-      receiptImage: receiptImage || undefined,
-    });
+    let businessName = selectedBusiness;
+    if (selectedBusiness !== "custom") {
+      const found = businessTypes.find((b) => b.name === selectedBusiness);
+      if (found) businessName = found.name;
+    }
 
-    toast.success("Gasto registrado exitosamente");
-    onSubmit();
+    const nuevoGasto = {
+      macrocategoria: macroName,
+      categoria: categoryName,
+      negocio: businessName,
+      total_amount: parseFloat(amount),
+      user_id: USER_ID,
+    };
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(
+        "https://biyuyo-pruebas.onrender.com/expenses",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(nuevoGasto),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al guardar gasto en el servidor");
+      }
+
+      // ÉXITO
+      toast.success("Gasto registrado en la Nube exitosamente");
+
+      // 1. Refrescar lista
+      refreshTransactions();
+
+      // 2. Limpiar
+      setSelectedMacro("");
+      setSelectedCategory("");
+      setSelectedBusiness("");
+      setAmount("");
+      setReceiptImage(null);
+
+      // 3. Cerrar
+      onSubmit();
+    } catch (error) {
+      console.error(error);
+      toast.error("Error conectando con la base de datos");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isFormValid =
@@ -174,7 +214,6 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
         {selectedBusiness === "custom" && (
           <Input
             placeholder="Escribe el tipo de negocio"
-            value=""
             onChange={(e) => setSelectedBusiness(e.target.value || "custom")}
             className="border-2 mt-2"
           />
@@ -248,8 +287,19 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
         )}
       </div>
 
-      <Button className="w-full" disabled={!isFormValid} onClick={handleSubmit}>
-        Registrar Gasto
+      <Button
+        className="w-full"
+        disabled={!isFormValid || isSubmitting}
+        onClick={handleSubmit}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Guardando...
+          </>
+        ) : (
+          "Registrar Gasto"
+        )}
       </Button>
     </div>
   );
