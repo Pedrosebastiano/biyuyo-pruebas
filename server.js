@@ -37,7 +37,8 @@ app.get("/users", async (req, res) => {
 
 // 2. Crear Gasto
 app.post("/expenses", async (req, res) => {
-  const { macrocategoria, categoria, negocio, total_amount, user_id } = req.body;
+  const { macrocategoria, categoria, negocio, total_amount, user_id } =
+    req.body;
 
   try {
     const query = `
@@ -70,7 +71,8 @@ app.get("/expenses", async (req, res) => {
 
 // 4. CREAR UN INGRESO
 app.post("/incomes", async (req, res) => {
-  const { macrocategoria, categoria, negocio, total_amount, user_id } = req.body;
+  const { macrocategoria, categoria, negocio, total_amount, user_id } =
+    req.body;
 
   try {
     const query = `
@@ -89,15 +91,86 @@ app.post("/incomes", async (req, res) => {
 });
 
 // 5. LEER INGRESOS
-app.get('/incomes', async (req, res) => {
+app.get("/incomes", async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM incomes ORDER BY created_at DESC');
+    const result = await pool.query(
+      "SELECT * FROM incomes ORDER BY created_at DESC",
+    );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
+
+// ... (Tus rutas anteriores de expenses e incomes siguen arriba) ...
+
+// 6. CREAR RECORDATORIO
+app.post("/reminders", async (req, res) => {
+  const {
+    user_id,
+    nombre,
+    macrocategoria,
+    categoria,
+    negocio,
+    monto,
+    moneda,
+    fecha_proximo_pago,
+    frecuencia,
+    es_cuota,
+    cuotas_totales,
+    cuota_actual,
+  } = req.body;
+
+  try {
+    const query = `
+      INSERT INTO reminders (
+        user_id, nombre, macrocategoria, categoria, negocio, 
+        monto, moneda, fecha_proximo_pago, frecuencia, 
+        es_cuota, cuotas_totales, cuota_actual
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *;
+    `;
+
+    const values = [
+      user_id,
+      nombre,
+      macrocategoria,
+      categoria,
+      negocio,
+      monto,
+      moneda,
+      fecha_proximo_pago,
+      frecuencia,
+      es_cuota,
+      cuotas_totales,
+      cuota_actual,
+    ];
+
+    const result = await pool.query(query, values);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error guardando recordatorio:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 7. LEER RECORDATORIOS
+app.get("/reminders", async (req, res) => {
+  try {
+    // Los ordenamos por fecha de próximo pago (lo más urgente primero)
+    const result = await pool.query(
+      "SELECT * FROM reminders ORDER BY fecha_proximo_pago ASC",
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ... (Aquí sigue const PORT = ... )
 
 // --- EL CAMBIO IMPORTANTE ESTÁ AQUÍ ---
 // Usamos process.env.PORT si existe (Render), si no, usamos 3001 (Laptop)

@@ -25,7 +25,7 @@ import {
   type BusinessType,
   type PaymentFrequency,
 } from "@/data/reminderCategories";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react"; // Agregado Loader2
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -33,12 +33,17 @@ import { CurrencySelector, type Currency } from "./CurrencySelector";
 import { useTransactions } from "@/hooks/useTransactions";
 import { toast } from "sonner";
 
+// TU ID DE SUPABASE
+const USER_ID = "6221431c-7a17-4acc-9c01-43903e30eb21";
+
 interface ReminderFormProps {
   onSubmit: () => void;
 }
 
 export function ReminderForm({ onSubmit }: ReminderFormProps) {
-  const { addReminder } = useTransactions();
+  // Extraemos refreshTransactions para actualizar la lista al guardar
+  const { refreshTransactions } = useTransactions();
+  
   const [selectedMacro, setSelectedMacro] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedBusiness, setSelectedBusiness] = useState<string>("");
@@ -49,6 +54,9 @@ export function ReminderForm({ onSubmit }: ReminderFormProps) {
   const [frequency, setFrequency] = useState<PaymentFrequency | "">("");
   const [hasInstallments, setHasInstallments] = useState<boolean>(false);
   const [totalInstallments, setTotalInstallments] = useState<string>("");
+  
+  // Estado para el botón de carga
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const categories: Category[] = selectedMacro
     ? getReminderCategoriesByMacro(selectedMacro)
@@ -69,38 +77,74 @@ export function ReminderForm({ onSubmit }: ReminderFormProps) {
     setSelectedBusiness("");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // 1. Obtener nombres legibles
     const macroName =
       reminderMacroCategories.find((m) => m.id === selectedMacro)?.name || "";
     const categoryName =
       categories.find((c) => c.id === selectedCategory)?.name || "";
-    const businessName =
-      selectedBusiness === "custom"
-        ? selectedBusiness
-        : businessTypes.find((b) => b.name === selectedBusiness)?.name ||
-          selectedBusiness;
+    
+    let businessName = selectedBusiness;
+    if (selectedBusiness !== "custom") {
+       const found = businessTypes.find((b) => b.name === selectedBusiness);
+       if(found) businessName = found.name;
+    }
+
     const frequencyName =
       paymentFrequencies.find((f) => f.id === frequency)?.name || "";
 
-    addReminder({
-      name: paymentName,
-      macroCategory: macroName,
-      category: categoryName,
-      business: businessName,
-      amount: parseFloat(amount),
-      currency,
-      nextDueDate: nextPaymentDate!,
-      frequency: frequencyName,
-      isInstallment: hasInstallments,
-      currentInstallment: hasInstallments ? 1 : undefined,
-      totalInstallments: hasInstallments
-        ? parseInt(totalInstallments)
-        : undefined,
-    });
+    // 2. Preparar objeto para el Backend
+    // Nota: Asegúrate de que las columnas en Supabase coincidan con estos nombres
+    // o que tu Backend haga la transformación.
+    const nuevoRecordatorio = {
+      user_id: USER_ID,
+      nombre: paymentName,           // Campo 'name' o 'nombre' en BD
+      macrocategoria: macroName,
+      categoria: categoryName,
+      negocio: businessName,
+      monto: parseFloat(amount),     // Campo 'amount' o 'monto' en BD
+      moneda: currency,
+      fecha_proximo_pago: nextPaymentDate, // Campo 'next_due_date' en BD
+      frecuencia: frequencyName,
+      es_cuota: hasInstallments,
+      cuotas_totales: hasInstallments ? parseInt(totalInstallments) : null,
+      cuota_actual: hasInstallments ? 1 : null,
+    };
 
-    toast.success("Recordatorio creado exitosamente");
-    onSubmit();
-  };  
+    setIsSubmitting(true);
+
+    try {
+      // 3. Enviar a Render
+      const response = await fetch(
+        "https://biyuyo-pruebas.onrender.com/reminders", 
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(nuevoRecordatorio),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al guardar recordatorio en el servidor");
+      }
+
+      // Éxito
+      toast.success("Recordatorio guardado en la Nube exitosamente");
+      
+      // Actualizar lista y limpiar
+      refreshTransactions(); 
+      onSubmit();
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Error conectando con la base de datos");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const isFormValid =
     selectedMacro &&
     selectedCategory &&
@@ -185,7 +229,7 @@ export function ReminderForm({ onSubmit }: ReminderFormProps) {
         {selectedBusiness === "custom" && (
           <Input
             placeholder="Escribe el tipo de negocio"
-            value=""
+            value="" // Manejo manual si es necesario
             onChange={(e) => setSelectedBusiness(e.target.value || "custom")}
             className="border-2 mt-2"
           />
@@ -314,8 +358,19 @@ export function ReminderForm({ onSubmit }: ReminderFormProps) {
         )}
       </div>
 
-      <Button className="w-full" disabled={!isFormValid} onClick={handleSubmit}>
-        Crear Recordatorio
+      <Button 
+        className="w-full" 
+        disabled={!isFormValid || isSubmitting} 
+        onClick={handleSubmit}
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Guardando Recordatorio...
+          </>
+        ) : (
+          "Crear Recordatorio"
+        )}
       </Button>
     </div>
   );
