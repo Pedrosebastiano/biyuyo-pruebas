@@ -9,19 +9,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  incomeMacroCategories, 
-  getIncomeCategoriesByMacro, 
+import {
+  incomeMacroCategories,
+  getIncomeCategoriesByMacro,
   getIncomeBusinessTypesByCategory,
   type Category,
-  type BusinessType 
+  type BusinessType,
 } from "@/data/incomeCategories";
 import { Camera, X, Loader2 } from "lucide-react"; // Agregué Loader2
 import { CurrencySelector, type Currency } from "./CurrencySelector";
 import { toast } from "sonner";
 
 // --- IMPORTANTE: PEGA AQUÍ TU USER ID DE SUPABASE ---
-const USER_ID = "6221431c-7a17-4acc-9c01-43903e30eb21"; 
+const USER_ID = "6221431c-7a17-4acc-9c01-43903e30eb21";
 
 interface IncomeFormProps {
   onSubmit: () => void;
@@ -35,13 +35,16 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
   const [currency, setCurrency] = useState<Currency>("USD");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false); // Estado de carga
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const categories: Category[] = selectedMacro ? getIncomeCategoriesByMacro(selectedMacro) : [];
-  const businessTypes: BusinessType[] = selectedMacro && selectedCategory 
-    ? getIncomeBusinessTypesByCategory(selectedMacro, selectedCategory) 
+
+  const categories: Category[] = selectedMacro
+    ? getIncomeCategoriesByMacro(selectedMacro)
     : [];
+  const businessTypes: BusinessType[] =
+    selectedMacro && selectedCategory
+      ? getIncomeBusinessTypesByCategory(selectedMacro, selectedCategory)
+      : [];
 
   const handleMacroChange = (value: string) => {
     setSelectedMacro(value);
@@ -74,14 +77,16 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
 
   const handleSubmit = async () => {
     // 1. Obtener nombres legibles (Tu lógica original)
-    const macroName = incomeMacroCategories.find((m) => m.id === selectedMacro)?.name || "";
-    const categoryName = categories.find((c) => c.id === selectedCategory)?.name || "";
-    
+    const macroName =
+      incomeMacroCategories.find((m) => m.id === selectedMacro)?.name || "";
+    const categoryName =
+      categories.find((c) => c.id === selectedCategory)?.name || "";
+
     // Lógica para input manual vs select
     let businessName = selectedBusiness;
     if (selectedBusiness !== "custom") {
-        const found = businessTypes.find((b) => b.name === selectedBusiness);
-        if (found) businessName = found.name;
+      const found = businessTypes.find((b) => b.name === selectedBusiness);
+      if (found) businessName = found.name;
     }
 
     // 2. Preparar el objeto para enviar al Backend
@@ -90,56 +95,59 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
       categoria: categoryName,
       negocio: businessName, // En la BD se guarda como 'negocio'
       total_amount: parseFloat(amount),
-      user_id: USER_ID // El ID obligatorio para Supabase
+      user_id: USER_ID, // El ID obligatorio para Supabase
     };
 
     setIsSubmitting(true);
 
     try {
       // 3. Enviar a tu servidor Node.js
-      const response = await fetch('http://localhost:3001/incomes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        "https://biyuyo-pruebas.onrender.com/incomes",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(nuevoIngreso),
         },
-        body: JSON.stringify(nuevoIngreso),
-      });
+      );
 
       if (!response.ok) {
-        throw new Error('Error al guardar en el servidor');
+        throw new Error("Error al guardar en el servidor");
       }
 
       const data = await response.json();
       console.log("Guardado en Supabase:", data);
 
       toast.success("Ingreso registrado en la Nube exitosamente");
-      
+
       // Limpiar formulario
       setSelectedMacro("");
       setSelectedCategory("");
       setSelectedBusiness("");
       setAmount("");
       setReceiptImage(null);
-      
-      onSubmit(); // Cerrar modal o lo que haga esta función
 
+      onSubmit(); // Cerrar modal o lo que haga esta función
     } catch (error) {
       console.error(error);
       toast.error("Error conectando con la base de datos");
     } finally {
       setIsSubmitting(false);
     }
-  };  
+  };
 
-  const isFormValid = selectedMacro && selectedCategory && selectedBusiness && amount;
+  const isFormValid =
+    selectedMacro && selectedCategory && selectedBusiness && amount;
 
   return (
     <div className="space-y-4">
       {/* ... (Todo tu JSX del formulario se mantiene igual hasta el botón final) ... */}
-      
+
       {/* Solo copio la parte de arriba para no hacer spam, los inputs son iguales */}
       {/* ... Inputs de Macro, Categoria, Negocio, Monto e Imagen ... */}
-      
+
       <div className="space-y-2">
         <Label htmlFor="income-macro-category">Macro Categoría</Label>
         <Select value={selectedMacro} onValueChange={handleMacroChange}>
@@ -158,13 +166,19 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="income-category">Categoría</Label>
-        <Select 
-          value={selectedCategory} 
+        <Select
+          value={selectedCategory}
           onValueChange={handleCategoryChange}
           disabled={!selectedMacro}
         >
           <SelectTrigger id="income-category" className="border-2">
-            <SelectValue placeholder={selectedMacro ? "Selecciona una categoría" : "Primero selecciona una macro categoría"} />
+            <SelectValue
+              placeholder={
+                selectedMacro
+                  ? "Selecciona una categoría"
+                  : "Primero selecciona una macro categoría"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {categories.map((category) => (
@@ -178,13 +192,19 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="income-business-type">Tipo de Fuente</Label>
-        <Select 
-          value={selectedBusiness} 
+        <Select
+          value={selectedBusiness}
           onValueChange={setSelectedBusiness}
           disabled={!selectedCategory}
         >
           <SelectTrigger id="income-business-type" className="border-2">
-            <SelectValue placeholder={selectedCategory ? "Selecciona un tipo de fuente" : "Primero selecciona una categoría"} />
+            <SelectValue
+              placeholder={
+                selectedCategory
+                  ? "Selecciona un tipo de fuente"
+                  : "Primero selecciona una categoría"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {businessTypes.map((business) => (
@@ -195,7 +215,7 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
             <SelectItem value="custom">Otro (escribir manualmente)</SelectItem>
           </SelectContent>
         </Select>
-        
+
         {selectedBusiness === "custom" && (
           <Input
             placeholder="Escribe el tipo de fuente"
@@ -224,8 +244,8 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
               min="0"
             />
           </div>
-          <CurrencySelector 
-            value={currency} 
+          <CurrencySelector
+            value={currency}
             onChange={setCurrency}
             className="w-28 border-2"
           />
@@ -233,8 +253,8 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
       </div>
 
       {/* Botón de Submit Modificado */}
-      <Button 
-        className="w-full" 
+      <Button
+        className="w-full"
         disabled={!isFormValid || isSubmitting}
         onClick={handleSubmit}
       >
