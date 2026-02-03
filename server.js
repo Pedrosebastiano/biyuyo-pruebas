@@ -1,7 +1,7 @@
 // server.js (Modo Supabase)
-import express from 'express';
-import pg from 'pg';
-import cors from 'cors';
+import express from "express";
+import pg from "pg";
+import cors from "cors";
 
 const { Pool } = pg;
 const app = express();
@@ -9,18 +9,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
-const connectionString = 'postgresql://postgres:[dZzKGzHnjS6ajIRldZzKGzHnjS6ajIRl]@db.pmjjguyibxydzxnofcjx.supabase.co:5432/postgres';
+const connectionString =
+  "postgresql://postgres.pmjjguyibxydzxnofcjx:ZyMDIx2p3EErqtaG@aws-0-us-west-2.pooler.supabase.com:6543/postgres";
 
 const pool = new Pool({
   connectionString,
   ssl: {
-    rejectUnauthorized: false, // Requerido para conectar a Supabase/Neon desde Node
+    rejectUnauthorized: false,
   },
 });
-app.get('/users', async (req, res) => {
+app.get("/users", async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM users');
+    const result = await pool.query("SELECT * FROM users");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -29,9 +29,10 @@ app.get('/users', async (req, res) => {
 });
 
 // 2. Crear Gasto
-app.post('/expenses', async (req, res) => {
-  const { macrocategoria, categoria, negocio, total_amount, user_id } = req.body;
-  
+app.post("/expenses", async (req, res) => {
+  const { macrocategoria, categoria, negocio, total_amount, user_id } =
+    req.body;
+
   try {
     const query = `
       INSERT INTO expenses (macrocategoria, categoria, negocio, total_amount, user_id)
@@ -39,7 +40,7 @@ app.post('/expenses', async (req, res) => {
       RETURNING *;
     `;
     const values = [macrocategoria, categoria, negocio, total_amount, user_id];
-    
+
     const result = await pool.query(query, values);
     res.json(result.rows[0]);
   } catch (err) {
@@ -49,9 +50,11 @@ app.post('/expenses', async (req, res) => {
 });
 
 // 3. Leer Gastos
-app.get('/expenses', async (req, res) => {
+app.get("/expenses", async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM expenses ORDER BY created_at DESC');
+    const result = await pool.query(
+      "SELECT * FROM expenses ORDER BY created_at DESC",
+    );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -59,12 +62,11 @@ app.get('/expenses', async (req, res) => {
   }
 });
 
-
-
 // 4. CREAR UN INGRESO (Ruta Nueva)
-app.post('/incomes', async (req, res) => {
-  const { macrocategoria, categoria, negocio, total_amount, user_id } = req.body;
-  
+app.post("/incomes", async (req, res) => {
+  const { macrocategoria, categoria, negocio, total_amount, user_id } =
+    req.body;
+
   try {
     const query = `
       INSERT INTO incomes (macrocategoria, categoria, negocio, total_amount, user_id)
@@ -72,7 +74,7 @@ app.post('/incomes', async (req, res) => {
       RETURNING *;
     `;
     const values = [macrocategoria, categoria, negocio, total_amount, user_id];
-    
+
     const result = await pool.query(query, values);
     res.json(result.rows[0]);
   } catch (err) {
@@ -81,6 +83,19 @@ app.post('/incomes', async (req, res) => {
   }
 });
 
+// 5. LEER INGRESOS (Faltaba esta ruta)
+app.get('/incomes', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM incomes ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(3001, () => {
-  console.log('🚀 Backend conectado a Supabase corriendo en http://localhost:3001');
+  console.log(
+    "🚀 Backend conectado a Supabase corriendo en http://localhost:3001",
+  );
 });
