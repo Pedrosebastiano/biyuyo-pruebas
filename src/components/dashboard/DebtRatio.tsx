@@ -63,7 +63,7 @@ export function DebtRatio() {
         <Card className="border-2 shadow-sm">
             <CardHeader className="text-center pb-0">
                 <CardTitle className="text-2xl font-bold text-[#2d509e]">
-                    Nivel de compromiso financiero
+                    Compromiso financiero
                 </CardTitle>
             </CardHeader>
             <CardContent className="pb-6">

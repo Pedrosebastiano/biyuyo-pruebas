@@ -1,10 +1,50 @@
 import { SavingsGoalCard } from "@/components/dashboard/GoalCard";
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  Cell
+} from "recharts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+// More saturated color palette (except for savings goal)
+const pastelColors = [
+  '#26C6DA', // cyan
+  '#FF6384', // pink
+  '#9e8fd4ff', // yellow
+  '#7C4DFF', // purple
+  '#FF8A65', // orange
+  '#536DFE', // blue
+  '#43A047', // green
+  '#FFB300', // amber
+  '#D500F9', // magenta
+  '#00B8D4', // teal
+  '#FF1744', // red
+  '#00E676', // light green
+];
 
 // Custom Legend to show all bars
-function CustomLegend() {
+function CustomLegend({ chartData }: { chartData: any[] }) {
   return (
     <ul style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', listStyle: 'none', margin: 0, padding: 0 }}>
-      {data.map((entry) => (
+      {chartData.map((entry) => (
         <li key={entry.name} style={{ display: 'flex', alignItems: 'center', marginRight: 16, marginBottom: 4 }}>
           <span style={{
             display: 'inline-block',
@@ -21,47 +61,29 @@ function CustomLegend() {
     </ul>
   );
 }
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  Cell
-} from "recharts";
-
-// More saturated color palette (except for savings goal)
-const pastelColors = [
-  '#26C6DA', // cyan
-  '#FF6384', // pink
-  '#FFD600', // yellow
-  '#7C4DFF', // purple
-  '#FF8A65', // orange
-  '#536DFE', // blue
-  '#43A047', // green
-  '#FFB300', // amber
-  '#D500F9', // magenta
-  '#00B8D4', // teal
-  '#FF1744', // red
-  '#00E676', // light green
-];
-
-const savingsGoal = 100;
-const data = [
-  { name: "Meta de ahorro", value: savingsGoal, color: "#bdbdbd" },
-  { name: "Ene", value: 50.41, color: pastelColors[0] },
-  { name: "Feb", value: 75.06, color: pastelColors[1] },
-  { name: "Mar", value: 95.66, color: pastelColors[2] },
-  // Add more months here if needed
-];
 
 export function MonthlySavingsChart() {
+  const [savingsGoal, setSavingsGoal] = useState(100);
+  const [tempGoal, setTempGoal] = useState(savingsGoal.toString());
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const data = useMemo(() => [
+    { name: "Meta de ahorro", value: savingsGoal, color: "#bdbdbd" },
+    { name: "Ene", value: 50.41, color: pastelColors[0] },
+    { name: "Feb", value: 75.06, color: pastelColors[1] },
+    { name: "Mar", value: 95.66, color: pastelColors[2] },
+  ], [savingsGoal]);
+
+  const handleSaveGoal = () => {
+    const newGoal = parseFloat(tempGoal);
+    if (!isNaN(newGoal) && newGoal >= 0) {
+      setSavingsGoal(newGoal);
+      setIsDialogOpen(false);
+    }
+  };
+
   return (
-    <Card className="border-2 shadow-sm">
+    <Card className="border-2 shadow-sm relative">
       <CardHeader className="text-center pb-2">
         <CardTitle className="text-2xl font-bold text-[#2d509e]">
           Ahorros mensuales
@@ -79,24 +101,23 @@ export function MonthlySavingsChart() {
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               barSize={45}
             >
-              <CartesianGrid 
-                strokeDasharray="3 3" 
-                horizontal={false} 
-                stroke="#e0e0e0" 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                horizontal={false}
+                stroke="#e0e0e0"
               />
-              <XAxis 
-                type="number" 
-                orientation="top" 
-                domain={[0, 100]} 
-                ticks={[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]}
+              <XAxis
+                type="number"
+                orientation="top"
+                domain={[0, Math.max(100, savingsGoal + 20)]}
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#666', fontSize: 12 }}
               />
-              <YAxis 
-                dataKey="name" 
-                type="category" 
-                hide 
+              <YAxis
+                dataKey="name"
+                type="category"
+                hide
               />
               <Tooltip
                 cursor={{ fill: 'transparent' }}
@@ -107,9 +128,8 @@ export function MonthlySavingsChart() {
                 }}
                 formatter={(value: number) => [`$${value}`, "Ahorro"]}
               />
-              <Legend verticalAlign="bottom" height={36} content={<CustomLegend />} />
-              
-              {/* Only one Bar, each entry is a category (goal or month) */}
+              <Legend verticalAlign="bottom" height={36} content={<CustomLegend chartData={data} />} />
+
               <Bar
                 dataKey="value"
                 name="Ahorro"
@@ -143,7 +163,53 @@ export function MonthlySavingsChart() {
         </div>
       </CardContent>
 
-      <SavingsGoalCard goal={100} text="Meta de ahorro:" currency="$" />
+      <div className="px-8 pb-6 flex flex-col gap-4">
+        <SavingsGoalCard
+          goal={savingsGoal}
+          text="Meta de ahorro:"
+          currency="$"
+          style={{ margin: 0 }}
+        />
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              className="w-full bg-[#29488e] hover:bg-[#1e356d] text-white font-bold py-6 rounded-xl text-lg shadow-md"
+              onClick={() => setTempGoal(savingsGoal.toString())}
+            >
+              Cambiar meta
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="text-[#2d509e] text-2xl">Cambiar meta de ahorro</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="savings-goal" className="text-[#2d509e] font-semibold">
+                  Nueva meta ($)
+                </Label>
+                <Input
+                  id="savings-goal"
+                  type="number"
+                  value={tempGoal}
+                  onChange={(e) => setTempGoal(e.target.value)}
+                  placeholder="Ej: 200"
+                  className="rounded-lg border-[#2d509e]/20 focus-visible:ring-[#2d509e]"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={handleSaveGoal}
+                className="bg-[#29488e] hover:bg-[#1e356d] text-white font-bold px-8"
+              >
+                Guardar cambios
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </Card>
   );
 }
