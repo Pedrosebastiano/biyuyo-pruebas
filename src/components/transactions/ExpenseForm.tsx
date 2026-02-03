@@ -9,34 +9,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  macroCategories, 
-  getCategoriesByMacro, 
+import {
+  macroCategories,
+  getCategoriesByMacro,
   getBusinessTypesByCategory,
   type Category,
-  type BusinessType 
+  type BusinessType,
 } from "@/data/categories";
-import { Camera, X } from "lucide-react";
+import { Camera, X, Loader2 } from "lucide-react";
 import { CurrencySelector, type Currency } from "./CurrencySelector";
+import { useTransactions } from "@/hooks/useTransactions";
+import { toast } from "sonner";
+
+// TU ID DE SUPABASE
+const USER_ID = "6221431c-7a17-4acc-9c01-43903e30eb21";
 
 interface ExpenseFormProps {
   onSubmit: () => void;
 }
 
 export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
+  const { refreshTransactions } = useTransactions();
   const [selectedMacro, setSelectedMacro] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedBusiness, setSelectedBusiness] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<Currency>("USD");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const categories: Category[] = selectedMacro ? getCategoriesByMacro(selectedMacro) : [];
-  const businessTypes: BusinessType[] = selectedMacro && selectedCategory 
-    ? getBusinessTypesByCategory(selectedMacro, selectedCategory) 
+
+  const categories: Category[] = selectedMacro
+    ? getCategoriesByMacro(selectedMacro)
     : [];
+  const businessTypes: BusinessType[] =
+    selectedMacro && selectedCategory
+      ? getBusinessTypesByCategory(selectedMacro, selectedCategory)
+      : [];
 
   const handleMacroChange = (value: string) => {
     setSelectedMacro(value);
@@ -67,24 +77,72 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
     }
   };
 
-  const handleSubmit = () => {
-    console.log({
-      type: "expense",
-      macroCategory: selectedMacro,
-      category: selectedCategory,
-      businessType: selectedBusiness,
-      amount: parseFloat(amount),
-      currency,
-      receiptImage,
-    });
-    onSubmit();
+  const handleSubmit = async () => {
+    const macroName =
+      macroCategories.find((m) => m.id === selectedMacro)?.name || "";
+    const categoryName =
+      categories.find((c) => c.id === selectedCategory)?.name || "";
+
+    let businessName = selectedBusiness;
+    if (selectedBusiness !== "custom") {
+      const found = businessTypes.find((b) => b.name === selectedBusiness);
+      if (found) businessName = found.name;
+    }
+
+    const nuevoGasto = {
+      macrocategoria: macroName,
+      categoria: categoryName,
+      negocio: businessName,
+      total_amount: parseFloat(amount),
+      user_id: USER_ID,
+    };
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(
+        "https://biyuyo-pruebas.onrender.com/expenses",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(nuevoGasto),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al guardar gasto en el servidor");
+      }
+
+      // ÉXITO
+      toast.success("Gasto registrado en la Nube exitosamente");
+
+      // 1. Refrescar lista
+      refreshTransactions();
+
+      // 2. Limpiar
+      setSelectedMacro("");
+      setSelectedCategory("");
+      setSelectedBusiness("");
+      setAmount("");
+      setReceiptImage(null);
+
+      // 3. Cerrar
+      onSubmit();
+    } catch (error) {
+      console.error(error);
+      toast.error("Error conectando con la base de datos");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const isFormValid = selectedMacro && selectedCategory && selectedBusiness && amount;
+  const isFormValid =
+    selectedMacro && selectedCategory && selectedBusiness && amount;
 
   return (
     <div className="space-y-4">
-      {/* Macro Category */}
       <div className="space-y-2">
         <Label htmlFor="expense-macro-category">Macro Categoría</Label>
         <Select value={selectedMacro} onValueChange={handleMacroChange}>
@@ -101,16 +159,21 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
         </Select>
       </div>
 
-      {/* Category */}
       <div className="space-y-2">
         <Label htmlFor="expense-category">Categoría</Label>
-        <Select 
-          value={selectedCategory} 
+        <Select
+          value={selectedCategory}
           onValueChange={handleCategoryChange}
           disabled={!selectedMacro}
         >
           <SelectTrigger id="expense-category" className="border-2">
-            <SelectValue placeholder={selectedMacro ? "Selecciona una categoría" : "Primero selecciona una macro categoría"} />
+            <SelectValue
+              placeholder={
+                selectedMacro
+                  ? "Selecciona una categoría"
+                  : "Primero selecciona una macro categoría"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {categories.map((category) => (
@@ -122,28 +185,41 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
         </Select>
       </div>
 
-      {/* Business Type */}
       <div className="space-y-2">
         <Label htmlFor="expense-business-type">Tipo de Negocio</Label>
-        <Select 
-          value={selectedBusiness} 
+        <Select
+          value={selectedBusiness}
           onValueChange={setSelectedBusiness}
           disabled={!selectedCategory}
         >
           <SelectTrigger id="expense-business-type" className="border-2">
-            <SelectValue placeholder={selectedCategory ? "Selecciona un tipo de negocio" : "Primero selecciona una categoría"} />
+            <SelectValue
+              placeholder={
+                selectedCategory
+                  ? "Selecciona un tipo de negocio"
+                  : "Primero selecciona una categoría"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {businessTypes.map((business) => (
-              <SelectItem key={business.id} value={business.id}>
+              <SelectItem key={business.id} value={business.name}>
                 {business.name}
               </SelectItem>
             ))}
+            <SelectItem value="custom">Otro (escribir manualmente)</SelectItem>
           </SelectContent>
         </Select>
+
+        {selectedBusiness === "custom" && (
+          <Input
+            placeholder="Escribe el tipo de negocio"
+            onChange={(e) => setSelectedBusiness(e.target.value || "custom")}
+            className="border-2 mt-2"
+          />
+        )}
       </div>
 
-      {/* Amount with Currency */}
       <div className="space-y-2">
         <Label htmlFor="expense-amount">Monto</Label>
         <div className="flex gap-2">
@@ -162,15 +238,14 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
               min="0"
             />
           </div>
-          <CurrencySelector 
-            value={currency} 
+          <CurrencySelector
+            value={currency}
             onChange={setCurrency}
             className="w-28 border-2"
           />
         </div>
       </div>
 
-      {/* Receipt Image Upload */}
       <div className="space-y-2">
         <Label>Foto de Factura (Opcional)</Label>
         <input
@@ -181,12 +256,12 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
           onChange={handleImageUpload}
           className="hidden"
         />
-        
+
         {receiptImage ? (
           <div className="relative rounded-lg border-2 border-border overflow-hidden">
-            <img 
-              src={receiptImage} 
-              alt="Factura" 
+            <img
+              src={receiptImage}
+              alt="Factura"
               className="w-full h-40 object-cover"
             />
             <Button
@@ -212,13 +287,19 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
         )}
       </div>
 
-      {/* Submit Button */}
-      <Button 
-        className="w-full" 
-        disabled={!isFormValid}
+      <Button
+        className="w-full"
+        disabled={!isFormValid || isSubmitting}
         onClick={handleSubmit}
       >
-        Registrar Gasto
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Guardando...
+          </>
+        ) : (
+          "Registrar Gasto"
+        )}
       </Button>
     </div>
   );
