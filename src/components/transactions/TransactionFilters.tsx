@@ -99,14 +99,14 @@ export function TransactionFilters({
           <div className="space-y-2">
             <Label>Categoría</Label>
             <Select
-              value={filters.category}
-              onValueChange={(value) => updateFilter("category", value)}
+              value={filters.category || "all"}
+              onValueChange={(value) => updateFilter("category", value === "all" ? "" : value)}
             >
               <SelectTrigger className="border-2">
                 <SelectValue placeholder="Todas las categorías" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas las categorías</SelectItem>
+                <SelectItem value="all">Todas las categorías</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}

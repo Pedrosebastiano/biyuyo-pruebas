@@ -9,34 +9,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  incomeMacroCategories, 
-  getIncomeCategoriesByMacro, 
+import {
+  incomeMacroCategories,
+  getIncomeCategoriesByMacro,
   getIncomeBusinessTypesByCategory,
   type Category,
-  type BusinessType 
+  type BusinessType,
 } from "@/data/incomeCategories";
 import { Camera, X } from "lucide-react";
 import { CurrencySelector, type Currency } from "./CurrencySelector";
+import { useTransactions } from "@/hooks/useTransactions";
+import { toast } from "sonner";
 
 interface IncomeFormProps {
   onSubmit: () => void;
 }
 
 export function IncomeForm({ onSubmit }: IncomeFormProps) {
+  const { addTransaction } = useTransactions();
   const [selectedMacro, setSelectedMacro] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedBusiness, setSelectedBusiness] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<Currency>("USD");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const categories: Category[] = selectedMacro ? getIncomeCategoriesByMacro(selectedMacro) : [];
-  const businessTypes: BusinessType[] = selectedMacro && selectedCategory 
-    ? getIncomeBusinessTypesByCategory(selectedMacro, selectedCategory) 
+
+  const categories: Category[] = selectedMacro
+    ? getIncomeCategoriesByMacro(selectedMacro)
     : [];
+  const businessTypes: BusinessType[] =
+    selectedMacro && selectedCategory
+      ? getIncomeBusinessTypesByCategory(selectedMacro, selectedCategory)
+      : [];
 
   const handleMacroChange = (value: string) => {
     setSelectedMacro(value);
@@ -68,23 +74,35 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
   };
 
   const handleSubmit = () => {
-    console.log({
+    const macroName =
+      incomeMacroCategories.find((m) => m.id === selectedMacro)?.name || "";
+    const categoryName =
+      categories.find((c) => c.id === selectedCategory)?.name || "";
+    const businessName =
+      selectedBusiness === "custom"
+        ? selectedBusiness
+        : businessTypes.find((b) => b.name === selectedBusiness)?.name ||
+          selectedBusiness;
+
+    addTransaction({
       type: "income",
-      macroCategory: selectedMacro,
-      category: selectedCategory,
-      businessType: selectedBusiness,
+      macroCategory: macroName,
+      category: categoryName,
+      business: businessName,
       amount: parseFloat(amount),
       currency,
-      receiptImage,
+      receiptImage: receiptImage || undefined,
     });
+
+    toast.success("Ingreso registrado exitosamente");
     onSubmit();
   };
 
-  const isFormValid = selectedMacro && selectedCategory && selectedBusiness && amount;
+  const isFormValid =
+    selectedMacro && selectedCategory && selectedBusiness && amount;
 
   return (
     <div className="space-y-4">
-      {/* Macro Category */}
       <div className="space-y-2">
         <Label htmlFor="income-macro-category">Macro Categoría</Label>
         <Select value={selectedMacro} onValueChange={handleMacroChange}>
@@ -101,16 +119,21 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
         </Select>
       </div>
 
-      {/* Category */}
       <div className="space-y-2">
         <Label htmlFor="income-category">Categoría</Label>
-        <Select 
-          value={selectedCategory} 
+        <Select
+          value={selectedCategory}
           onValueChange={handleCategoryChange}
           disabled={!selectedMacro}
         >
           <SelectTrigger id="income-category" className="border-2">
-            <SelectValue placeholder={selectedMacro ? "Selecciona una categoría" : "Primero selecciona una macro categoría"} />
+            <SelectValue
+              placeholder={
+                selectedMacro
+                  ? "Selecciona una categoría"
+                  : "Primero selecciona una macro categoría"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {categories.map((category) => (
@@ -125,25 +148,40 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
       {/* Business Type */}
       <div className="space-y-2">
         <Label htmlFor="income-business-type">Tipo de Fuente</Label>
-        <Select 
-          value={selectedBusiness} 
+        <Select
+          value={selectedBusiness}
           onValueChange={setSelectedBusiness}
           disabled={!selectedCategory}
         >
           <SelectTrigger id="income-business-type" className="border-2">
-            <SelectValue placeholder={selectedCategory ? "Selecciona un tipo de fuente" : "Primero selecciona una categoría"} />
+            <SelectValue
+              placeholder={
+                selectedCategory
+                  ? "Selecciona un tipo de fuente"
+                  : "Primero selecciona una categoría"
+              }
+            />
           </SelectTrigger>
           <SelectContent>
             {businessTypes.map((business) => (
-              <SelectItem key={business.id} value={business.id}>
+              <SelectItem key={business.id} value={business.name}>
                 {business.name}
               </SelectItem>
             ))}
+            <SelectItem value="custom">Otro (escribir manualmente)</SelectItem>
           </SelectContent>
         </Select>
+
+        {selectedBusiness === "custom" && (
+          <Input
+            placeholder="Escribe el tipo de fuente"
+            value=""
+            onChange={(e) => setSelectedBusiness(e.target.value || "custom")}
+            className="border-2 mt-2"
+          />
+        )}
       </div>
 
-      {/* Amount with Currency */}
       <div className="space-y-2">
         <Label htmlFor="income-amount">Monto</Label>
         <div className="flex gap-2">
@@ -162,15 +200,14 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
               min="0"
             />
           </div>
-          <CurrencySelector 
-            value={currency} 
+          <CurrencySelector
+            value={currency}
             onChange={setCurrency}
             className="w-28 border-2"
           />
         </div>
       </div>
 
-      {/* Receipt Image Upload */}
       <div className="space-y-2">
         <Label>Comprobante (Opcional)</Label>
         <input
@@ -181,12 +218,12 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
           onChange={handleImageUpload}
           className="hidden"
         />
-        
+
         {receiptImage ? (
           <div className="relative rounded-lg border-2 border-border overflow-hidden">
-            <img 
-              src={receiptImage} 
-              alt="Comprobante" 
+            <img
+              src={receiptImage}
+              alt="Comprobante"
               className="w-full h-40 object-cover"
             />
             <Button
@@ -212,12 +249,7 @@ export function IncomeForm({ onSubmit }: IncomeFormProps) {
         )}
       </div>
 
-      {/* Submit Button */}
-      <Button 
-        className="w-full" 
-        disabled={!isFormValid}
-        onClick={handleSubmit}
-      >
+      <Button className="w-full" disabled={!isFormValid} onClick={handleSubmit}>
         Registrar Ingreso
       </Button>
     </div>
