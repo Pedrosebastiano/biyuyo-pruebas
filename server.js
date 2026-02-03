@@ -37,8 +37,7 @@ app.get("/users", async (req, res) => {
 
 // --- GASTOS (EXPENSES) ---
 app.post("/expenses", async (req, res) => {
-  const { macrocategoria, categoria, negocio, total_amount, user_id } =
-    req.body;
+  const { macrocategoria, categoria, negocio, total_amount, user_id } = req.body;
 
   try {
     const query = `
@@ -70,8 +69,7 @@ app.get("/expenses", async (req, res) => {
 
 // --- INGRESOS (INCOMES) ---
 app.post("/incomes", async (req, res) => {
-  const { macrocategoria, categoria, negocio, total_amount, user_id } =
-    req.body;
+  const { macrocategoria, categoria, negocio, total_amount, user_id } = req.body;
 
   try {
     const query = `
@@ -89,11 +87,9 @@ app.post("/incomes", async (req, res) => {
   }
 });
 
-app.get("/incomes", async (req, res) => {
+app.get('/incomes', async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM incomes ORDER BY created_at DESC",
-    );
+    const result = await pool.query('SELECT * FROM incomes ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -108,15 +104,15 @@ app.post("/reminders", async (req, res) => {
   // Recibimos los datos con nombres del Frontend (español)
   const {
     user_id,
-    nombre, // Viene como 'nombre'
+    nombre,             // Viene como 'nombre'
     macrocategoria,
     categoria,
     negocio,
-    monto, // Viene como 'monto'
+    monto,              // Viene como 'monto'
     fecha_proximo_pago, // Viene como 'fecha_proximo_pago'
-    frecuencia, // Viene como 'frecuencia'
-    es_cuota, // Viene como 'es_cuota'
-    cuota_actual, // Viene como 'cuota_actual'
+    frecuencia,         // Viene como 'frecuencia'
+    es_cuota,           // Viene como 'es_cuota'
+    cuota_actual        // Viene como 'cuota_actual'
   } = req.body;
 
   try {
@@ -137,19 +133,19 @@ app.post("/reminders", async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *;
     `;
-
+    
     // Asignamos las variables recibidas al orden correcto
     const values = [
-      user_id,
-      nombre, // Va a reminder_name
-      macrocategoria,
-      categoria,
-      negocio,
-      monto, // Va a total_amount
-      fecha_proximo_pago, // Va a next_payment_date
-      frecuencia, // Va a payment_frequency
-      es_cuota, // Va a is_installment
-      cuota_actual, // Va a installment_number
+      user_id, 
+      nombre,              // Va a reminder_name
+      macrocategoria, 
+      categoria, 
+      negocio, 
+      monto,               // Va a total_amount
+      fecha_proximo_pago,  // Va a next_payment_date
+      frecuencia,          // Va a payment_frequency
+      es_cuota,            // Va a is_installment
+      cuota_actual         // Va a installment_number
     ];
 
     const result = await pool.query(query, values);
@@ -163,23 +159,21 @@ app.post("/reminders", async (req, res) => {
 app.get("/reminders", async (req, res) => {
   try {
     // Ordenamos por fecha más próxima
-    const result = await pool.query(
-      "SELECT * FROM reminders ORDER BY next_payment_date ASC",
-    );
-
+    const result = await pool.query("SELECT * FROM reminders ORDER BY next_payment_date ASC");
+    
     // Transformamos los datos de vuelta al español para que el Frontend los entienda
-    const recordatoriosFormateados = result.rows.map((row) => ({
-      id: row.reminder_id, // Tu tabla usa reminder_id
+    const recordatoriosFormateados = result.rows.map(row => ({
+      id: row.reminder_id,           // Tu tabla usa reminder_id
       user_id: row.user_id,
-      nombre: row.reminder_name, // Traducimos a 'nombre'
+      nombre: row.reminder_name,           // Traducimos a 'nombre'
       macrocategoria: row.macrocategoria,
       categoria: row.categoria,
       negocio: row.negocio,
-      monto: row.total_amount, // Traducimos a 'monto'
+      monto: row.total_amount,             // Traducimos a 'monto'
       fecha_proximo_pago: row.next_payment_date, // Traducimos
-      frecuencia: row.payment_frequency, // Traducimos
-      es_cuota: row.is_installment, // Traducimos
-      cuota_actual: row.installment_number, // Traducimos
+      frecuencia: row.payment_frequency,   // Traducimos
+      es_cuota: row.is_installment,        // Traducimos
+      cuota_actual: row.installment_number // Traducimos
     }));
 
     res.json(recordatoriosFormateados);
