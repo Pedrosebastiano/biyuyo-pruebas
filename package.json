@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "start": "node server.js",  
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -16,6 +15,8 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
+    "@nivo/core": "^0.99.0",
+    "@nivo/pie": "^0.99.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -109,17 +110,9 @@
   },
   "keywords": [],
   "author": "",
-<<<<<<< HEAD
-=======
-
->>>>>>> 09fb72b71970b593dea8d453db402a4a3f316145
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/Pedrosebastiano/smart-money-buddy/issues"
   },
   "homepage": "https://github.com/Pedrosebastiano/smart-money-buddy#readme"
-<<<<<<< HEAD
-=======
-
->>>>>>> 09fb72b71970b593dea8d453db402a4a3f316145
 }
