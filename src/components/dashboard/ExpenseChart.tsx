@@ -24,6 +24,7 @@ const COLORS = [
   "hsl(290, 70%, 50%)", // Violet
 ];
 
+
 // Dummy data for visualization
 const MOCK_DATA = [
   { macroCategory: "🧾 Alimentos y bebidas", category: "Supermercados", amount: 450.00, type: "expense" },
