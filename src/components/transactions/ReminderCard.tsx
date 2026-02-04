@@ -3,8 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarClock } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { cn } from "@/lib/utils";
-import InvoiceButton from './InvoiceButton';
 
 // Función para traducir frecuencias
 const translateFrequency = (frequency: string): string => {
@@ -109,12 +107,6 @@ export function ReminderCard({
                 {translateFrequency(frequency)}
               </p>
             </div>
-
-            {/* AQUÍ ESTÁ EL BOTÓN DE PAPELITO */}
-            <InvoiceButton 
-              invoiceNumber={`INV-${name.substring(0,3).toUpperCase()}`}
-              onClick={() => alert(`Abriendo factura de ${name}`)}
-            />
           </div>
         </div>
       </CardContent>
