@@ -20,9 +20,15 @@ import { Camera, X, Loader2 } from "lucide-react";
 import { CurrencySelector, type Currency } from "./CurrencySelector";
 import { useTransactions } from "@/hooks/useTransactions";
 import { toast } from "sonner";
+import { createClient } from '@supabase/supabase-js';
 
 // TU ID DE SUPABASE
 const USER_ID = "6221431c-7a17-4acc-9c01-43903e30eb21";
+
+// Configuración de Supabase
+const supabaseUrl = "https://pmjjguyibxydzxnofcjx.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtampndXlpYnh5ZHp4bm9mY2p4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODE2NTAsImV4cCI6MjA4NTY1NzY1MH0.ZYTzwvzdcjgiiJHollA7vyNZ7ZF8hIN1NuTOq5TdtjI";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface ExpenseFormProps {
   onSubmit: () => void;
@@ -33,10 +39,11 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
   const [selectedMacro, setSelectedMacro] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedBusiness, setSelectedBusiness] = useState<string>("");
-  const [customBusiness, setCustomBusiness] = useState<string>(""); // Nuevo estado para negocio personalizado
+  const [customBusiness, setCustomBusiness] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<Currency>("USD");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,13 +72,27 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
   const handleBusinessChange = (value: string) => {
     setSelectedBusiness(value);
     if (value !== "custom") {
-      setCustomBusiness(""); // Limpiar custom si se selecciona otra opción
+      setCustomBusiness("");
     }
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validar que sea una imagen
+      if (!file.type.match('image.*')) {
+        toast.error('Solo se permiten archivos de imagen');
+        return;
+      }
+
+      // Validar tamaño (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('La imagen no debe superar los 5MB');
+        return;
+      }
+
+      setReceiptFile(file);
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setReceiptImage(reader.result as string);
@@ -82,8 +103,47 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
 
   const removeImage = () => {
     setReceiptImage(null);
+    setReceiptFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const uploadImageToSupabase = async (file: File): Promise<string | null> => {
+    try {
+      // Generar nombre único para el archivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      const filePath = `imagenes/${fileName}`;
+
+      console.log(`📤 Subiendo imagen a Supabase: ${filePath}`);
+
+      // Subir el archivo a Supabase Storage
+      const { error: uploadError } = await supabase
+        .storage
+        .from('factura')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
+
+      if (uploadError) {
+        console.error("❌ Error subiendo imagen:", uploadError);
+        throw uploadError;
+      }
+
+      // Obtener URL pública
+      const { data: { publicUrl } } = supabase
+        .storage
+        .from('factura')
+        .getPublicUrl(filePath);
+
+      console.log(`✅ Imagen subida exitosamente: ${publicUrl}`);
+      return publicUrl;
+    } catch (error) {
+      console.error("Error completo al subir imagen:", error);
+      return null;
     }
   };
 
@@ -93,7 +153,7 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
     const categoryName =
       categories.find((c) => c.id === selectedCategory)?.name || "";
 
-    // Determinar el nombre del negocio (usar custom si está seleccionado y tiene valor)
+    // Determinar el nombre del negocio
     let businessName = "";
     if (selectedBusiness === "custom") {
       businessName = customBusiness.trim();
@@ -102,17 +162,33 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
       businessName = found ? found.name : selectedBusiness;
     }
 
-    const nuevoGasto = {
-      macrocategoria: macroName,
-      categoria: categoryName,
-      negocio: businessName,
-      total_amount: parseFloat(amount),
-      user_id: USER_ID,
-    };
-
     setIsSubmitting(true);
 
     try {
+      let imageUrl: string | null = null;
+
+      // Subir imagen si existe
+      if (receiptFile) {
+        console.log("📷 Procesando imagen de factura...");
+        imageUrl = await uploadImageToSupabase(receiptFile);
+        
+        if (!imageUrl) {
+          toast.error("Error al subir la imagen, pero el gasto se guardará sin ella");
+        }
+      }
+
+      // Preparar objeto del gasto
+      const nuevoGasto = {
+        macrocategoria: macroName,
+        categoria: categoryName,
+        negocio: businessName,
+        total_amount: parseFloat(amount),
+        user_id: USER_ID,
+        receipt_image_url: imageUrl, // Agregar URL de la imagen
+      };
+
+      console.log("📤 Enviando gasto a la base de datos:", nuevoGasto);
+
       const response = await fetch(
         "https://biyuyo-pruebas.onrender.com/expenses",
         {
@@ -129,20 +205,23 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
       }
 
       // ÉXITO
-      toast.success("Gasto registrado en la Nube exitosamente");
+      toast.success(imageUrl 
+        ? "Gasto e imagen registrados exitosamente" 
+        : "Gasto registrado exitosamente");
 
-      // 1. Refrescar lista
+      // Refrescar lista
       refreshTransactions();
 
-      // 2. Limpiar
+      // Limpiar
       setSelectedMacro("");
       setSelectedCategory("");
       setSelectedBusiness("");
       setCustomBusiness("");
       setAmount("");
       setReceiptImage(null);
+      setReceiptFile(null);
 
-      // 3. Cerrar
+      // Cerrar
       onSubmit();
     } catch (error) {
       console.error(error);
@@ -153,9 +232,9 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
   };
 
   const isFormValid =
-    selectedMacro && 
-    selectedCategory && 
-    selectedBusiness && 
+    selectedMacro &&
+    selectedCategory &&
+    selectedBusiness &&
     amount &&
     (selectedBusiness !== "custom" || customBusiness.trim() !== "");
 

@@ -4,11 +4,17 @@ import * as fs from "fs";
 import * as path from "path";
 import https from "https";
 import { fileURLToPath } from "url";
+import { createClient } from '@supabase/supabase-js';
 
 // 1. Configuración de rutas para ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_PATH = path.join(__dirname, "../../public/rates.json");
+
+// Configuración de Supabase
+const supabaseUrl = "https://pmjjguyibxydzxnofcjx.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtampndXlpYnh5ZHp4bm9mY2p4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwODE2NTAsImV4cCI6MjA4NTY1NzY1MH0.ZYTzwvzdcjgiiJHollA7vyNZ7ZF8hIN1NuTOq5TdtjI";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface RateData {
   date: string;
@@ -55,6 +61,9 @@ async function scrapeBCV() {
     const now = new Date();
     const venezuelaTime = new Date(now.getTime() - (4 * 60 * 60 * 1000));
     const formattedDate = `${venezuelaTime.getDate().toString().padStart(2, "0")}/${(venezuelaTime.getMonth() + 1).toString().padStart(2, "0")}/${venezuelaTime.getFullYear()}`;
+    
+    // Formato ISO para Supabase (YYYY-MM-DD)
+    const isoDate = `${venezuelaTime.getFullYear()}-${(venezuelaTime.getMonth() + 1).toString().padStart(2, "0")}-${venezuelaTime.getDate().toString().padStart(2, "0")}`;
 
     const newEntry: RateData = {
       date: formattedDate,
@@ -62,7 +71,53 @@ async function scrapeBCV() {
       lastUpdated: now.toISOString(),
     };
 
-    // Manejo de archivo
+    // GUARDAR EN SUPABASE
+    console.log(`💾 Guardando en Supabase: ${rateValue} Bs. para ${isoDate}`);
+    
+    // Verificar si ya existe una tasa para esta fecha
+    const { data: existingRate } = await supabase
+      .from('exchange_rates')
+      .select('rate_id, rate')
+      .eq('rate_date', isoDate)
+      .single();
+
+    if (existingRate) {
+      // Actualizar si el valor es diferente
+      if (existingRate.rate !== rateValue) {
+        const { error: updateError } = await supabase
+          .from('exchange_rates')
+          .update({ 
+            rate: rateValue, 
+            recorded_at: now.toISOString() 
+          })
+          .eq('rate_id', existingRate.rate_id);
+
+        if (updateError) {
+          console.error("❌ Error actualizando en Supabase:", updateError);
+        } else {
+          console.log(`✅ Tasa actualizada en Supabase: ${rateValue} Bs.`);
+        }
+      } else {
+        console.log(`ℹ️ La tasa de hoy ya está registrada en Supabase (${rateValue} Bs.)`);
+      }
+    } else {
+      // Insertar nueva tasa
+      const { error: insertError } = await supabase
+        .from('exchange_rates')
+        .insert({
+          rate: rateValue,
+          rate_date: isoDate,
+          recorded_at: now.toISOString()
+        });
+
+      if (insertError) {
+        console.error("❌ Error insertando en Supabase:", insertError);
+      } else {
+        console.log(`✅ Nueva tasa guardada en Supabase: ${rateValue} Bs. para ${isoDate}`);
+      }
+    }
+
+    // GUARDAR EN ARCHIVO LOCAL (como respaldo)
     let history: RateData[] = [];
     if (fs.existsSync(DATA_PATH)) {
       try {
@@ -74,21 +129,15 @@ async function scrapeBCV() {
       }
     }
 
-    // Guardar/Actualizar
+    // Guardar/Actualizar en archivo local
     const existsIndex = history.findIndex((r) => r.date === formattedDate);
 
     if (existsIndex >= 0) {
       if (history[existsIndex].value !== rateValue) {
         history[existsIndex] = newEntry;
-        console.log(`✅ Tasa actualizada para hoy: ${rateValue} Bs.`);
-      } else {
-        console.log(`ℹ️ La tasa de hoy ya está registrada (${rateValue} Bs.)`);
       }
     } else {
       history.push(newEntry);
-      console.log(
-        `✅ Nuevo registro agregado: ${rateValue} Bs. para el ${formattedDate}`,
-      );
     }
 
     // Crear carpeta si no existe
@@ -107,3 +156,5 @@ async function scrapeBCV() {
 
 // Ejecutar el scraper
 scrapeBCV();
+
+
