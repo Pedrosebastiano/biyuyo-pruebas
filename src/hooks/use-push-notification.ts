@@ -1,7 +1,10 @@
+// src/hooks/usePushNotification.ts
 import { useState, useEffect } from "react";
-import { messaging } from "@/lib/firebase"; // Using your existing firebase init
+import { messaging } from "@/lib/firebase"; 
 import { getToken, onMessage } from "firebase/messaging";
-import { toast } from "sonner"; // Using 'sonner' as seen in App.tsx
+import { toast } from "sonner";
+import { localNotificationService } from "@/services/local-notification-service";
+//import { supabase } from "@/lib/supabase"; 
 
 export const usePushNotification = () => {
     const [fcmToken, setFcmToken] = useState<string | null>(null);
@@ -9,49 +12,54 @@ export const usePushNotification = () => {
     useEffect(() => {
         const requestPermissionAndGetToken = async () => {
             try {
-                const permission = await Notification.requestPermission();
-                if (permission === "granted") {
-                    // Get the token
-                    // VAPID Key is optional usually if not configured in the call, but recommended if you have one. 
-                    // If you don't have one generated in Firebase Console -> Cloud Messaging -> Web Config, 
-                    // we can try without it, or you can add it here.
-                    // For now, let's try basic getToken.
-                    if (!messaging) {
-                        console.warn("Messaging not supported in this window");
-                        return;
-                    }
-
-                    const currentToken = await getToken(messaging);
+                // Pedimos permiso usando el servicio centralizado
+                const permission = await localNotificationService.requestPermission();
+                
+                if (permission === "granted" && messaging) {
+                    // Es MUY recomendable usar la VAPID Key de tu consola de Firebase
+                    const currentToken = await getToken(messaging, {
+                        vapidKey: "BHFMjfQKQwiMQPn0Ca_J1eavdtjLveKAg1KWgI1JV6w9Qv7YuiIFU0csnATu5L5mQNFDHH2j3Ny-8aN1OKpeTQw" 
+                    });
 
                     if (currentToken) {
-                        console.log("FCM Token:", currentToken);
                         setFcmToken(currentToken);
-                        // TODO: Send this token to your server (Supabase) to associate with the user
-                        // e.g. await saveTokenToSupabase(user.id, currentToken);
-                    } else {
-                        console.log("No registration token available. Request permission to generate one.");
+                        console.log("FCM Token obtenido:", currentToken);
+                        // Aquí llamarías a tu función de Supabase:
+                        // await updateProfileToken(currentToken);
                     }
-                } else {
-                    console.log("Notification permission not granted.");
                 }
             } catch (err) {
-                console.log("An error occurred while retrieving token. ", err);
+                console.error("Error al obtener el token de push:", err);
             }
         };
 
         requestPermissionAndGetToken();
     }, []);
 
-    // Listen for foreground messages
+    // Escuchar mensajes cuando la app está abierta (Foreground)
     useEffect(() => {
         if (!messaging) return;
 
         const unsubscribe = onMessage(messaging, (payload) => {
-            console.log("Message received. ", payload);
-            // Show a toast or notification when app is in foreground
-            toast(payload.notification?.title || "New Notification", {
+            console.log("Mensaje recibido en primer plano:", payload);
+
+            // 1. Mostrar Toast visual (Sonner)
+            toast.info(payload.notification?.title || "Biyuyo Alerta", {
                 description: payload.notification?.body,
+                action: {
+                    label: "Ver",
+                    onClick: () => console.log("Clic en notificación"),
+                },
             });
+
+            // 2. Disparar notificación del sistema (ruido/vibración)
+            localNotificationService.displayNotification(
+                payload.notification?.title || "Recordatorio",
+                { 
+                    body: payload.notification?.body,
+                    requireInteraction: true // La notificación no se quita hasta que el usuario la vea
+                }
+            );
         });
 
         return () => unsubscribe();
