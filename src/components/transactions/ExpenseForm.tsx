@@ -16,28 +16,26 @@ import {
   type Category,
   type BusinessType,
 } from "@/data/categories";
-import { Camera, X, Loader2 } from "lucide-react";
+import { Camera, X } from "lucide-react";
 import { CurrencySelector, type Currency } from "./CurrencySelector";
 import { useTransactions } from "@/hooks/useTransactions";
 import { toast } from "sonner";
-
-// TU ID DE SUPABASE
-const USER_ID = "6221431c-7a17-4acc-9c01-43903e30eb21";
+import { supabase, uploadImage } from "../../../supabase"; // Importar uploadImage también
 
 interface ExpenseFormProps {
   onSubmit: () => void;
 }
 
 export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
-  const { refreshTransactions } = useTransactions();
+  const { addTransaction } = useTransactions();
   const [selectedMacro, setSelectedMacro] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedBusiness, setSelectedBusiness] = useState<string>("");
-  const [customBusiness, setCustomBusiness] = useState<string>(""); // Nuevo estado para negocio personalizado
   const [amount, setAmount] = useState<string>("");
   const [currency, setCurrency] = useState<Currency>("USD");
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,25 +51,17 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
     setSelectedMacro(value);
     setSelectedCategory("");
     setSelectedBusiness("");
-    setCustomBusiness("");
   };
 
   const handleCategoryChange = (value: string) => {
     setSelectedCategory(value);
     setSelectedBusiness("");
-    setCustomBusiness("");
-  };
-
-  const handleBusinessChange = (value: string) => {
-    setSelectedBusiness(value);
-    if (value !== "custom") {
-      setCustomBusiness(""); // Limpiar custom si se selecciona otra opción
-    }
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setReceiptImage(reader.result as string);
@@ -82,82 +72,104 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
 
   const removeImage = () => {
     setReceiptImage(null);
+    setImageFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
+  // FUNCIÓN ÚNICA handleSubmit
   const handleSubmit = async () => {
-    const macroName =
-      macroCategories.find((m) => m.id === selectedMacro)?.name || "";
-    const categoryName =
-      categories.find((c) => c.id === selectedCategory)?.name || "";
-
-    // Determinar el nombre del negocio (usar custom si está seleccionado y tiene valor)
-    let businessName = "";
-    if (selectedBusiness === "custom") {
-      businessName = customBusiness.trim();
-    } else {
-      const found = businessTypes.find((b) => b.name === selectedBusiness);
-      businessName = found ? found.name : selectedBusiness;
-    }
-
-    const nuevoGasto = {
-      macrocategoria: macroName,
-      categoria: categoryName,
-      negocio: businessName,
-      total_amount: parseFloat(amount),
-      user_id: USER_ID,
-    };
-
-    setIsSubmitting(true);
+    setLoading(true);
 
     try {
-      const response = await fetch(
-        "https://biyuyo-pruebas.onrender.com/expenses",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(nuevoGasto),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Error al guardar gasto en el servidor");
+      // Validaciones
+      if (!selectedMacro || !selectedCategory || !selectedBusiness || !amount) {
+        toast.error("Por favor, completa todos los campos obligatorios");
+        setLoading(false);
+        return;
       }
 
-      // ÉXITO
-      toast.success("Gasto registrado en la Nube exitosamente");
+      let imageUrl = null;
+      
+      // Subir imagen a Supabase si existe
+      if (imageFile) {
+        try {
+          imageUrl = await uploadImage(imageFile, 'factura', 'imagenes');
+          toast.success("Imagen subida exitosamente");
+        } catch (error) {
+          console.error("Error al subir imagen:", error);
+          toast.error("Error al subir la imagen, pero continuando...");
+        }
+      }
 
-      // 1. Refrescar lista
-      refreshTransactions();
+      // Obtener nombres para mostrar
+      const macroName = macroCategories.find((m) => m.id === selectedMacro)?.name || "";
+      const categoryName = categories.find((c) => c.id === selectedCategory)?.name || "";
+      const businessName = selectedBusiness === "custom" 
+        ? selectedBusiness 
+        : businessTypes.find((b) => b.name === selectedBusiness)?.name || selectedBusiness;
 
-      // 2. Limpiar
+      // Guardar en Supabase
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert([
+          {
+            description: `${macroName} - ${categoryName} - ${businessName}`,
+            amount: parseFloat(amount),
+            category: categoryName,
+            date: new Date().toISOString().split('T')[0],
+            image_url: imageUrl,
+            type: 'expense',
+            macro_category: macroName,
+            business_type: businessName,
+            currency: currency,
+            created_at: new Date().toISOString()
+          }
+        ]);
+
+      if (error) {
+        console.error("Error al guardar en Supabase:", error);
+        throw new Error(`Error al guardar: ${error.message}`);
+      }
+
+      // También agregar al contexto local si es necesario
+      addTransaction({
+        type: "expense",
+        macroCategory: macroName,
+        category: categoryName,
+        business: businessName,
+        amount: parseFloat(amount),
+        currency,
+        receiptImage: receiptImage || undefined,
+      });
+
+      toast.success("Gasto registrado exitosamente");
+      
+      // Resetear formulario
       setSelectedMacro("");
       setSelectedCategory("");
       setSelectedBusiness("");
-      setCustomBusiness("");
       setAmount("");
       setReceiptImage(null);
-
-      // 3. Cerrar
+      setImageFile(null);
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      
+      // Cerrar diálogo
       onSubmit();
+
     } catch (error) {
-      console.error(error);
-      toast.error("Error conectando con la base de datos");
+      console.error("Error:", error);
+      toast.error(error instanceof Error ? error.message : "Error al guardar el gasto");
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
-  const isFormValid =
-    selectedMacro && 
-    selectedCategory && 
-    selectedBusiness && 
-    amount &&
-    (selectedBusiness !== "custom" || customBusiness.trim() !== "");
+  const isFormValid = selectedMacro && selectedCategory && selectedBusiness && amount;
 
   return (
     <div className="space-y-4">
@@ -207,7 +219,7 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
         <Label htmlFor="expense-business-type">Tipo de Negocio</Label>
         <Select
           value={selectedBusiness}
-          onValueChange={handleBusinessChange}
+          onValueChange={setSelectedBusiness}
           disabled={!selectedCategory}
         >
           <SelectTrigger id="expense-business-type" className="border-2">
@@ -232,8 +244,8 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
         {selectedBusiness === "custom" && (
           <Input
             placeholder="Escribe el tipo de negocio"
-            value={customBusiness}
-            onChange={(e) => setCustomBusiness(e.target.value)}
+            value=""
+            onChange={(e) => setSelectedBusiness(e.target.value || "custom")}
             className="border-2 mt-2"
           />
         )}
@@ -297,6 +309,7 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
             variant="outline"
             className="w-full h-24 border-2 border-dashed flex flex-col gap-2"
             onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
           >
             <Camera className="h-6 w-6 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
@@ -306,19 +319,12 @@ export function ExpenseForm({ onSubmit }: ExpenseFormProps) {
         )}
       </div>
 
-      <Button
-        className="w-full"
-        disabled={!isFormValid || isSubmitting}
+      <Button 
+        className="w-full" 
+        disabled={!isFormValid || loading} 
         onClick={handleSubmit}
       >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Guardando...
-          </>
-        ) : (
-          "Registrar Gasto"
-        )}
+        {loading ? "Guardando..." : "Registrar Gasto"}
       </Button>
     </div>
   );
