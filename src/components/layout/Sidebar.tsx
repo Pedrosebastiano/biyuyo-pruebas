@@ -68,25 +68,26 @@ export function Sidebar({ className }: SidebarProps) {
       <ScrollArea className="flex-1 px-4 py-6">
         <nav className="space-y-2">
           {navigation.map((item) => (
-            <Button
-              key={item.name}
-              variant={item.current ? "default" : "ghost"}
-              className={cn(
-                "w-full justify-start gap-3 h-11",
-                item.current && "shadow-sm"
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              <span className="flex-1 text-left">{item.name}</span>
-              {item.badge && (
-                <Badge 
-                  variant={item.badge === "Premium" ? "secondary" : "default"}
-                  className="text-xs"
-                >
-                  {item.badge}
-                </Badge>
-              )}
-            </Button>
+            <Link key={item.name} to={item.href}>
+              <Button
+                variant={item.current ? "default" : "ghost"}
+                className={cn(
+                  "w-full justify-start gap-3 h-11",
+                  item.current && "shadow-sm"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span className="flex-1 text-left">{item.name}</span>
+                {item.badge && (
+                  <Badge 
+                    variant={item.badge === "Premium" ? "secondary" : "default"}
+                    className="text-xs"
+                  >
+                    {item.badge}
+                  </Badge>
+                )}
+              </Button>
+            </Link>
           ))}
         </nav>
       </ScrollArea>

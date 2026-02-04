@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -24,6 +25,7 @@ const defaultFilters: FilterState = {
 
 export default function Transactions() {
   const { transactions, reminders } = useTransactions();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("expenses");
   const [expenseFilters, setExpenseFilters] = useState<FilterState>(defaultFilters);
   const [incomeFilters, setIncomeFilters] = useState<FilterState>(defaultFilters);
@@ -32,6 +34,18 @@ export default function Transactions() {
     sortBy: "dueDate",
   });
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+
+  // Handle tab query parameter from URL
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "reminders") {
+      setActiveTab("reminders");
+    } else if (tab === "income") {
+      setActiveTab("income");
+    } else if (tab === "expenses") {
+      setActiveTab("expenses");
+    }
+  }, [searchParams]);
 
   const expenses = transactions.filter((t) => t.type === "expense");
   const income = transactions.filter((t) => t.type === "income");
@@ -131,18 +145,18 @@ export default function Transactions() {
       result = result.filter((e) => e.nextDueDate <= reminderFilters.endDate!);
     }
 
+    // Always sort by due date ascending (soonest/overdue first) by default
     result.sort((a, b) => {
-      const order = reminderFilters.sortOrder === "asc" ? 1 : -1;
       if (reminderFilters.sortBy === "amount") {
+        const order = reminderFilters.sortOrder === "asc" ? 1 : -1;
         return (a.amount - b.amount) * order;
       }
       if (reminderFilters.sortBy === "category") {
+        const order = reminderFilters.sortOrder === "asc" ? 1 : -1;
         return a.macroCategory.localeCompare(b.macroCategory) * order;
       }
-      if (reminderFilters.sortBy === "dueDate") {
-        return (a.nextDueDate.getTime() - b.nextDueDate.getTime()) * order;
-      }
-      return (a.nextDueDate.getTime() - b.nextDueDate.getTime()) * order;
+      // Default: sort by due date ascending (soonest first, overdue at top)
+      return a.nextDueDate.getTime() - b.nextDueDate.getTime();
     });
 
     return result;
