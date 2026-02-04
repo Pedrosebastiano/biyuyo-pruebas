@@ -25,6 +25,7 @@ const defaultFilters: FilterState = {
 
 export default function Transactions() {
   const { transactions, reminders } = useTransactions();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("expenses");
   const [expenseFilters, setExpenseFilters] = useState<FilterState>(defaultFilters);
   const [incomeFilters, setIncomeFilters] = useState<FilterState>(defaultFilters);
@@ -33,6 +34,18 @@ export default function Transactions() {
     sortBy: "dueDate",
   });
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+
+  // Handle tab query parameter from URL
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "reminders") {
+      setActiveTab("reminders");
+    } else if (tab === "income") {
+      setActiveTab("income");
+    } else if (tab === "expenses") {
+      setActiveTab("expenses");
+    }
+  }, [searchParams]);
 
   const expenses = transactions.filter((t) => t.type === "expense");
   const income = transactions.filter((t) => t.type === "income");
