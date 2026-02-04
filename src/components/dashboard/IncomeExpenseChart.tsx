@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Dot } from "recharts";
 import { SavingsGoalCard } from "./GoalCard";
@@ -10,13 +9,12 @@ import {
 } from "@/components/ui/popover";
 
 const data = [
-  { date: "02-28", gastos: 16, ingresos: 40 },
-  { date: "03-01", gastos: 14, ingresos: 48 },
-  { date: "03-02", gastos: 12, ingresos: 42 },
-  { date: "03-03", gastos: 10, ingresos: 50 },
-  { date: "03-04", gastos: 13, ingresos: 46 },
-  { date: "03-05", gastos: 15, ingresos: 44 },
-  { date: "03-06", gastos: 14, ingresos: 52 },
+  { month: "Jan", income: 4200, expenses: 2800 },
+  { month: "Feb", income: 4500, expenses: 3100 },
+  { month: "Mar", income: 4300, expenses: 2900 },
+  { month: "Apr", income: 4800, expenses: 3200 },
+  { month: "May", income: 5100, expenses: 3400 },
+  { month: "Jun", income: 4900, expenses: 3100 },
 ];
 
 export function IncomeExpenseChart() {
@@ -47,8 +45,12 @@ export function IncomeExpenseChart() {
               <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 13 }} axisLine={false} tickLine={false} />
               <YAxis domain={[0, 100]} tick={{ fill: '#888', fontSize: 13 }} axisLine={false} tickLine={false} />
               <Tooltip
-                formatter={(value: number) => [`$${value}`, '']}
-                contentStyle={{ backgroundColor: '#fff', border: '1.5px solid #e0e0e0', borderRadius: 10 }}
+                formatter={(value: number) => [`$${value}`, ""]}
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "2px solid hsl(var(--border))",
+                  borderRadius: "var(--radius)",
+                }}
               />
               <Legend
                 iconType="circle"
