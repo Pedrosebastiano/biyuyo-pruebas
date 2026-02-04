@@ -145,18 +145,18 @@ export default function Transactions() {
       result = result.filter((e) => e.nextDueDate <= reminderFilters.endDate!);
     }
 
+    // Always sort by due date ascending (soonest/overdue first) by default
     result.sort((a, b) => {
-      const order = reminderFilters.sortOrder === "asc" ? 1 : -1;
       if (reminderFilters.sortBy === "amount") {
+        const order = reminderFilters.sortOrder === "asc" ? 1 : -1;
         return (a.amount - b.amount) * order;
       }
       if (reminderFilters.sortBy === "category") {
+        const order = reminderFilters.sortOrder === "asc" ? 1 : -1;
         return a.macroCategory.localeCompare(b.macroCategory) * order;
       }
-      if (reminderFilters.sortBy === "dueDate") {
-        return (a.nextDueDate.getTime() - b.nextDueDate.getTime()) * order;
-      }
-      return (a.nextDueDate.getTime() - b.nextDueDate.getTime()) * order;
+      // Default: sort by due date ascending (soonest first, overdue at top)
+      return a.nextDueDate.getTime() - b.nextDueDate.getTime();
     });
 
     return result;

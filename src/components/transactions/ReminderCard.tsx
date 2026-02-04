@@ -107,12 +107,6 @@ export function ReminderCard({
                 {translateFrequency(frequency)}
               </p>
             </div>
-
-            {/* AQUÍ ESTÁ EL BOTÓN DE PAPELITO */}
-            <InvoiceButton 
-              invoiceNumber={`INV-${name.substring(0,3).toUpperCase()}`}
-              onClick={() => alert(`Abriendo factura de ${name}`)}
-            />
           </div>
         </div>
       </CardContent>

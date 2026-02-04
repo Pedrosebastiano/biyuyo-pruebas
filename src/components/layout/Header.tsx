@@ -13,9 +13,24 @@ import {
 import { Bell, Search, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AddTransactionDialog } from "@/components/transactions/AddTransactionDialog";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useNavigate } from "react-router-dom";
+import { differenceInDays } from "date-fns";
 
 export function Header() {
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+  const { reminders } = useTransactions();
+  const navigate = useNavigate();
+
+  // Count reminders that are overdue or due within 3 days (red badge ones)
+  const urgentRemindersCount = reminders.filter((reminder) => {
+    const daysUntilDue = differenceInDays(reminder.nextDueDate, new Date());
+    return daysUntilDue <= 3; // Overdue (negative) or due within 3 days
+  }).length;
+
+  const handleNotificationClick = () => {
+    navigate("/transactions?tab=reminders");
+  };
 
   return (
     <>
@@ -41,11 +56,18 @@ export function Header() {
             Agregar Transacción
           </Button>
 
-          <Button variant="outline" size="icon" className="relative border-2">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="relative border-2"
+            onClick={handleNotificationClick}
+          >
             <Bell className="h-5 w-5" />
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-              3
-            </Badge>
+            {urgentRemindersCount > 0 && (
+              <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                {urgentRemindersCount}
+              </Badge>
+            )}
           </Button>
 
           <DropdownMenu>
