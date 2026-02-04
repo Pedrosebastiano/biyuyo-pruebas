@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 
 // URL DE TU BACKEND EN RENDER
@@ -51,26 +52,24 @@ export function useTransactions() {
       const remindersData = await resReminders.json();
 
       // 2. Convertimos el formato de la Base de Datos al formato de tu App
-      // La BD devuelve: { macrocategoria, total_amount, created_at ... }
-      // Tu App espera: { macroCategory, amount, date ... }
-      
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedExpenses: Transaction[] = expensesData
-        .filter((item: any) => item.expense_id) // Asegurar que tenga ID
+        .filter((item: any) => item.expense_id)
         .map((item: any) => ({
           id: `exp-${item.expense_id}`,
           type: "expense",
-          amount: parseFloat(item.total_amount), // Asegurar que sea número
-          currency: "USD", // Por defecto USD, ya que la BD simple no tenía moneda aun
+          amount: parseFloat(item.total_amount),
+          currency: "USD",
           macroCategory: item.macrocategoria,
           category: item.categoria,
           business: item.negocio,
           date: item.created_at ? item.created_at.split('T')[0] : new Date().toISOString(),
+          receiptImage: item.receipt_image_url || undefined, // ✅ IMPORTANTE: Agregar la imagen
         }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedIncomes: Transaction[] = incomesData
-        .filter((item: any) => item.income_id) // Asegurar que tenga ID
+        .filter((item: any) => item.income_id)
         .map((item: any) => ({
           id: `inc-${item.income_id}`,
           type: "income",
@@ -83,11 +82,9 @@ export function useTransactions() {
         }));
 
       // 3. Formateamos los recordatorios
-      // La BD devuelve: { reminder_id, reminder_name, next_payment_date, payment_frequency, is_installment, installment_number ... }
-      // Tu App espera: { id, name, nextDueDate, frequency, isInstallment, currentInstallment, totalInstallments ... }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedReminders: Reminder[] = remindersData
-        .filter((item: any) => item.id) // Asegurar que tenga ID
+        .filter((item: any) => item.id)
         .map((item: any) => ({
           id: item.id,
           name: item.nombre,
@@ -99,11 +96,11 @@ export function useTransactions() {
           nextDueDate: new Date(item.fecha_proximo_pago),
           frequency: item.frecuencia,
           isInstallment: item.es_cuota || false,
-          currentInstallment: 1, // Siempre empieza en 1 cuando se crea
-          totalInstallments: item.cuota_actual || undefined, // Total de cuotas
+          currentInstallment: 1,
+          totalInstallments: item.cuota_actual || undefined,
         }));
 
-      // 4. Unimos transacciones y ordenamos por fecha (más reciente primero)
+      // 4. Unimos transacciones y ordenamos por fecha
       const allTransactions = [...formattedExpenses, ...formattedIncomes].sort((a, b) => {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
@@ -123,8 +120,6 @@ export function useTransactions() {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  // Estas funciones ya no guardan en local, ahora solo recargan la lista
-  // (La lógica de guardar la moviste a los formularios IncomeForm/ExpenseForm)
   const refreshTransactions = () => {
     fetchTransactions();
   };
@@ -133,9 +128,9 @@ export function useTransactions() {
     transactions,
     reminders,
     loading,
-    refreshTransactions, // Usar esto después de crear un gasto/ingreso/recordatorio
-    // Mantenemos las firmas para que no rompa tu UI, pero ahora solo refrescan
+    refreshTransactions,
     addTransaction: refreshTransactions, 
-    addReminder: refreshTransactions, // Ahora refresca todo incluyendo recordatorios
+    addReminder: refreshTransactions,
   };
 }
+

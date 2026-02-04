@@ -37,17 +37,18 @@ app.get("/users", async (req, res) => {
 
 // --- GASTOS (EXPENSES) ---
 app.post("/expenses", async (req, res) => {
-  const { macrocategoria, categoria, negocio, total_amount, user_id } = req.body;
+  const { macrocategoria, categoria, negocio, total_amount, user_id, receipt_image_url } = req.body;
 
   try {
     const query = `
-      INSERT INTO expenses (macrocategoria, categoria, negocio, total_amount, user_id)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO expenses (macrocategoria, categoria, negocio, total_amount, user_id, receipt_image_url)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *;
     `;
-    const values = [macrocategoria, categoria, negocio, total_amount, user_id];
+    const values = [macrocategoria, categoria, negocio, total_amount, user_id, receipt_image_url || null];
 
     const result = await pool.query(query, values);
+    console.log("✅ Gasto guardado exitosamente:", result.rows[0]);
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Error guardando gasto:", err.message);
@@ -98,25 +99,21 @@ app.get('/incomes', async (req, res) => {
 });
 
 // --- RECORDATORIOS (REMINDERS) ---
-// AQUÍ ESTÁ LA CORRECCIÓN IMPORTANTE PARA TU TABLA
-
 app.post("/reminders", async (req, res) => {
-  // Recibimos los datos con nombres del Frontend (español)
   const {
     user_id,
-    nombre,             // Viene como 'nombre'
+    nombre,
     macrocategoria,
     categoria,
     negocio,
-    monto,              // Viene como 'monto'
-    fecha_proximo_pago, // Viene como 'fecha_proximo_pago'
-    frecuencia,         // Viene como 'frecuencia'
-    es_cuota,           // Viene como 'es_cuota'
-    cuota_actual        // Viene como 'cuota_actual'
+    monto,
+    fecha_proximo_pago,
+    frecuencia,
+    es_cuota,
+    cuota_actual
   } = req.body;
 
   try {
-    // Insertamos usando los nombres REALES de tu tabla SQL
     const query = `
       INSERT INTO reminders (
         user_id, 
@@ -134,18 +131,17 @@ app.post("/reminders", async (req, res) => {
       RETURNING *;
     `;
     
-    // Asignamos las variables recibidas al orden correcto
     const values = [
       user_id, 
-      nombre,              // Va a reminder_name
+      nombre,
       macrocategoria, 
       categoria, 
       negocio, 
-      monto,               // Va a total_amount
-      fecha_proximo_pago,  // Va a next_payment_date
-      frecuencia,          // Va a payment_frequency
-      es_cuota,            // Va a is_installment
-      cuota_actual         // Va a installment_number
+      monto,
+      fecha_proximo_pago,
+      frecuencia,
+      es_cuota,
+      cuota_actual
     ];
 
     const result = await pool.query(query, values);
@@ -158,25 +154,48 @@ app.post("/reminders", async (req, res) => {
 
 app.get("/reminders", async (req, res) => {
   try {
-    // Ordenamos por fecha más próxima
     const result = await pool.query("SELECT * FROM reminders ORDER BY next_payment_date ASC");
     
-    // Transformamos los datos de vuelta al español para que el Frontend los entienda
     const recordatoriosFormateados = result.rows.map(row => ({
-      id: row.reminder_id,           // Tu tabla usa reminder_id
+      id: row.reminder_id,
       user_id: row.user_id,
-      nombre: row.reminder_name,           // Traducimos a 'nombre'
+      nombre: row.reminder_name,
       macrocategoria: row.macrocategoria,
       categoria: row.categoria,
       negocio: row.negocio,
-      monto: row.total_amount,             // Traducimos a 'monto'
-      fecha_proximo_pago: row.next_payment_date, // Traducimos
-      frecuencia: row.payment_frequency,   // Traducimos
-      es_cuota: row.is_installment,        // Traducimos
-      cuota_actual: row.installment_number // Traducimos
+      monto: row.total_amount,
+      fecha_proximo_pago: row.next_payment_date,
+      frecuencia: row.payment_frequency,
+      es_cuota: row.is_installment,
+      cuota_actual: row.installment_number
     }));
 
     res.json(recordatoriosFormateados);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- TASAS DE CAMBIO (EXCHANGE RATES) ---
+app.get("/exchange-rates", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM exchange_rates ORDER BY rate_date DESC LIMIT 30"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/exchange-rates/latest", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM exchange_rates ORDER BY rate_date DESC LIMIT 1"
+    );
+    res.json(result.rows[0] || null);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
@@ -189,3 +208,4 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Backend corriendo en el puerto ${PORT}`);
 });
+
