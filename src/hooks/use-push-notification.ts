@@ -4,7 +4,7 @@ import { messaging } from "@/lib/firebase";
 import { getToken, onMessage } from "firebase/messaging";
 import { toast } from "sonner";
 import { localNotificationService } from "@/services/local-notification-service";
-//import { supabase } from "@/lib/supabase"; 
+import { getApiUrl, APP_CONFIG } from "@/lib/config";
 
 export const usePushNotification = () => {
     const [fcmToken, setFcmToken] = useState<string | null>(null);
