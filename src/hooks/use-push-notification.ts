@@ -23,8 +23,23 @@ export const usePushNotification = () => {
                     if (currentToken) {
                         setFcmToken(currentToken);
                         console.log("FCM Token obtenido:", currentToken);
-                        // Aquí llamarías a tu función de Supabase:
-                        // await updateProfileToken(currentToken);
+
+                        // Guardar token en el Backend (Server)
+                        try {
+                            await fetch("http://localhost:3001/save-token", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    token: currentToken,
+                                    // TODO: Si tienes el user_id disponible en el contexto, envíalo aquí.
+                                    // Por ahora, el server lo manejará como anónimo o null si no se envía.
+                                    // user_id: user?.id 
+                                })
+                            });
+                            console.log("Token enviado al backend exitosamente.");
+                        } catch (e) {
+                            console.error("Error enviando token al backend:", e);
+                        }
                     }
                 }
             } catch (err) {
