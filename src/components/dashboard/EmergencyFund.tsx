@@ -74,8 +74,20 @@ const CylinderBar = (props: any) => {
 };
 
 import { Account, Transaction } from "@/hooks/useTransactions";
+import { useCurrency, Currency } from "@/hooks/useCurrency";
 
-export function EmergencyFund({ accounts, transactions }: { accounts: Account[], transactions: Transaction[] }) {
+export function EmergencyFund({
+    accounts,
+    transactions,
+    currency = "USD",
+    exchangeRate = null
+}: {
+    accounts: Account[];
+    transactions: Transaction[];
+    currency?: Currency;
+    exchangeRate?: number | null;
+}) {
+    const { convertValue, getCurrencySymbol } = useCurrency({ exchangeRate, currency });
     const [goalMonths, setGoalMonths] = useState(6);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [tempGoalMonths, setTempGoalMonths] = useState(goalMonths.toString());
@@ -104,9 +116,9 @@ export function EmergencyFund({ accounts, transactions }: { accounts: Account[],
     const targetMetaAmount = goalMonths * monthlyExpenses;
 
     const data = useMemo(() => [
-        { name: "Fondo actual", value: Number(totalSavings.toFixed(2)), color: "#9594FF" },
-        { name: "Fondos requeridos", value: Number(targetMetaAmount.toFixed(2)), color: "#9594FF" },
-    ], [totalSavings, targetMetaAmount]);
+        { name: "Fondo actual", value: Number(convertValue(totalSavings).toFixed(2)), color: "#9594FF" },
+        { name: "Fondos requeridos", value: Number(convertValue(targetMetaAmount).toFixed(2)), color: "#9594FF" },
+    ], [totalSavings, targetMetaAmount, convertValue]);
 
     const handleSaveGoal = () => {
         const newGoal = parseInt(tempGoalMonths);
@@ -178,7 +190,7 @@ export function EmergencyFund({ accounts, transactions }: { accounts: Account[],
                                     border: "1px solid #ddd",
                                     borderRadius: "8px",
                                 }}
-                                formatter={(value: number) => [`$${value}`, "Ahorros"]}
+                                formatter={(value: number) => [`${getCurrencySymbol()}${value}`, "Ahorros"]}
                             />
                             <Legend
                                 verticalAlign="bottom"

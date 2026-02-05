@@ -8,15 +8,23 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Transaction } from "@/hooks/useTransactions";
+import { useCurrency, Currency } from "@/hooks/useCurrency";
 import { useMemo } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface IncomeExpenseChartProps {
   transactions: Transaction[];
+  currency?: Currency;
+  exchangeRate?: number | null;
 }
 
-export function IncomeExpenseChart({ transactions }: IncomeExpenseChartProps) {
+export function IncomeExpenseChart({
+  transactions,
+  currency = "USD",
+  exchangeRate = null
+}: IncomeExpenseChartProps) {
+  const { convertValue, getCurrencySymbol } = useCurrency({ exchangeRate, currency });
   const chartData = useMemo(() => {
     if (!transactions || transactions.length === 0) return [];
 
@@ -42,8 +50,15 @@ export function IncomeExpenseChart({ transactions }: IncomeExpenseChartProps) {
       }
     });
 
-    return Object.values(grouped).sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
-  }, [transactions]);
+    // Apply currency conversion
+    return Object.values(grouped)
+      .map(item => ({
+        ...item,
+        ingresos: convertValue(item.ingresos),
+        gastos: convertValue(item.gastos)
+      }))
+      .sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
+  }, [transactions, convertValue]);
 
   const averageExpenses = useMemo(() => {
     if (chartData.length === 0) return 0;
@@ -78,7 +93,7 @@ export function IncomeExpenseChart({ transactions }: IncomeExpenseChartProps) {
               <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 13 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#888', fontSize: 13 }} axisLine={false} tickLine={false} />
               <Tooltip
-                formatter={(value: number) => [`$${value.toFixed(2)}`, ""]}
+                formatter={(value: number) => [`${getCurrencySymbol()}${value.toFixed(2)}`, ""]}
                 contentStyle={{
                   backgroundColor: "hsl(var(--card))",
                   border: "2px solid hsl(var(--border))",
@@ -122,7 +137,7 @@ export function IncomeExpenseChart({ transactions }: IncomeExpenseChartProps) {
         </div>
       </CardContent>
       <div className="px-6 pb-6">
-        <SavingsGoalCard goal={averageExpenses} text="Promedio de gasto diario:" currency="$" />
+        <SavingsGoalCard goal={averageExpenses} text="Promedio de gasto diario:" currency={getCurrencySymbol()} />
       </div>
     </Card>
   );

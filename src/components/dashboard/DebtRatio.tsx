@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 
 import { Reminder, Account } from "@/hooks/useTransactions";
+import { useCurrency, Currency } from "@/hooks/useCurrency";
 import { useMemo } from "react";
 
 const getColor = (percent: number) => {
@@ -25,9 +26,10 @@ const getColor = (percent: number) => {
 
 interface DebtListCardProps {
     items: { name: string; amount: number }[];
+    currencySymbol: string;
 }
 
-const DebtListCard: React.FC<DebtListCardProps> = ({ items }) => {
+const DebtListCard: React.FC<DebtListCardProps> = ({ items, currencySymbol }) => {
     return (
         <div
             style={{
@@ -52,7 +54,7 @@ const DebtListCard: React.FC<DebtListCardProps> = ({ items }) => {
                             items.map((item, index) => (
                                 <tr key={index} className={index !== items.length - 1 ? "border-b border-[#f0f9f9]" : ""}>
                                     <td className="px-4 py-3 text-[#29488e] font-medium">{item.name}</td>
-                                    <td className="px-4 py-3 text-[#29488e] font-bold text-right">${item.amount}</td>
+                                    <td className="px-4 py-3 text-[#29488e] font-bold text-right">{currencySymbol}{item.amount.toFixed(2)}</td>
                                 </tr>
                             ))
                         ) : (
@@ -67,14 +69,26 @@ const DebtListCard: React.FC<DebtListCardProps> = ({ items }) => {
     );
 };
 
-export function DebtRatio({ reminders, accounts }: { reminders: Reminder[], accounts: Account[] }) {
+export function DebtRatio({
+    reminders,
+    accounts,
+    currency = "USD",
+    exchangeRate = null
+}: {
+    reminders: Reminder[];
+    accounts: Account[];
+    currency?: Currency;
+    exchangeRate?: number | null;
+}) {
+    const { convertValue, getCurrencySymbol } = useCurrency({ exchangeRate, currency });
+
     const debtItems = useMemo(() =>
-        reminders.map(r => ({ name: r.name, amount: r.amount })),
-        [reminders]);
+        reminders.map(r => ({ name: r.name, amount: convertValue(r.amount) })),
+        [reminders, convertValue]);
 
     const totalMoney = useMemo(() =>
-        accounts.reduce((acc, curr) => acc + curr.balance, 0),
-        [accounts]);
+        convertValue(accounts.reduce((acc, curr) => acc + curr.balance, 0)),
+        [accounts, convertValue]);
 
     const debtAmount = useMemo(() =>
         debtItems.reduce((acc, item) => acc + item.amount, 0),
@@ -160,11 +174,11 @@ export function DebtRatio({ reminders, accounts }: { reminders: Reminder[], acco
 
                     {/* Centered Total Amount */}
                     <div className="absolute top-[75%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                        <span className="text-4xl font-bold text-[#1a1a1a]">${debtAmount}</span>
+                        <span className="text-4xl font-bold text-[#1a1a1a]">{getCurrencySymbol()}{debtAmount.toFixed(2)}</span>
                     </div>
                 </div>
 
-                <DebtListCard items={debtItems} />
+                <DebtListCard items={debtItems} currencySymbol={getCurrencySymbol()} />
             </CardContent>
         </Card>
     );
