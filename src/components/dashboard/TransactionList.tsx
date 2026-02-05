@@ -40,7 +40,7 @@ export function TransactionList() {
       currency: t.currency,
       date: new Date(t.date),
       isReminder: false,
-      createdAt: t.createdAt ? new Date(t.createdAt) : new Date(t.date),
+      createdAt: (t as any).createdAt ? new Date((t as any).createdAt) : new Date(t.date),
     })),
     ...reminders.map((r) => ({
       id: r.id,
@@ -50,7 +50,7 @@ export function TransactionList() {
       currency: r.currency,
       date: r.nextDueDate,
       isReminder: true,
-      createdAt: r.createdAt ? new Date(r.createdAt) : r.nextDueDate,
+      createdAt: (r as any).createdAt ? new Date((r as any).createdAt) : r.nextDueDate,
     })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
