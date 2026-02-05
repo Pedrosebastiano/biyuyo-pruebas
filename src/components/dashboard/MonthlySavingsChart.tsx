@@ -65,16 +65,26 @@ function CustomLegend({ chartData }: { chartData: any[] }) {
 }
 
 import { Transaction } from "@/hooks/useTransactions";
+import { useCurrency, Currency } from "@/hooks/useCurrency";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
-export function MonthlySavingsChart({ transactions }: { transactions: Transaction[] }) {
+export function MonthlySavingsChart({
+  transactions,
+  currency = "USD",
+  exchangeRate = null
+}: {
+  transactions: Transaction[];
+  currency?: Currency;
+  exchangeRate?: number | null;
+}) {
+  const { convertValue, getCurrencySymbol } = useCurrency({ exchangeRate, currency });
   const [savingsGoal, setSavingsGoal] = useState(100);
   const [tempGoal, setTempGoal] = useState(savingsGoal.toString());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const data = useMemo(() => {
-    const baseData = [{ name: "Meta de ahorro", value: savingsGoal, color: "#bdbdbd" }];
+    const baseData = [{ name: "Meta de ahorro", value: convertValue(savingsGoal), color: "#bdbdbd" }];
     if (!transactions || transactions.length === 0) return baseData;
 
     const grouped: Record<string, { name: string; fullDate: Date; value: number }> = {};
@@ -102,12 +112,12 @@ export function MonthlySavingsChart({ transactions }: { transactions: Transactio
       .sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime())
       .map((item, index) => ({
         name: item.name,
-        value: Number(item.value.toFixed(2)),
+        value: Number(convertValue(item.value).toFixed(2)),
         color: pastelColors[index % pastelColors.length]
       }));
 
     return [...baseData, ...monthlyData];
-  }, [transactions, savingsGoal]);
+  }, [transactions, savingsGoal, convertValue]);
 
   const handleSaveGoal = () => {
     const newGoal = parseFloat(tempGoal);
@@ -170,7 +180,7 @@ export function MonthlySavingsChart({ transactions }: { transactions: Transactio
                   border: "1px solid #ddd",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number) => [`$${value}`, "Ahorro"]}
+                formatter={(value: number) => [`${getCurrencySymbol()}${value}`, "Ahorro"]}
               />
               <Legend verticalAlign="bottom" height={36} content={<CustomLegend chartData={data} />} />
 
@@ -192,7 +202,7 @@ export function MonthlySavingsChart({ transactions }: { transactions: Transactio
                         fontSize={14}
                         fontWeight="bold"
                       >
-                        {`${entry.name}: $${value}`}
+                        {`${entry.name}: ${getCurrencySymbol()}${value}`}
                       </text>
                     </g>
                   );
@@ -209,9 +219,9 @@ export function MonthlySavingsChart({ transactions }: { transactions: Transactio
 
       <div className="px-8 pb-6 flex flex-col gap-4">
         <SavingsGoalCard
-          goal={savingsGoal}
+          goal={convertValue(savingsGoal)}
           text="Meta de ahorro:"
-          currency="$"
+          currency={getCurrencySymbol()}
           style={{ margin: 0 }}
         />
 

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { useTransactions } from "@/hooks/useTransactions";
+import { useTransactions, Transaction } from "@/hooks/useTransactions";
+import { useCurrency, Currency } from "@/hooks/useCurrency";
 import { useMemo } from "react";
 import { Info } from "lucide-react";
 import {
@@ -38,9 +39,16 @@ const MOCK_DATA = [
   { macroCategory: "🎮 Entretenimiento y ocio", category: "Suscripciones", amount: 25.00, type: "expense" },
 ];
 
-import { Transaction } from "@/hooks/useTransactions";
-
-export function ExpenseChart({ transactions }: { transactions: Transaction[] }) {
+export function ExpenseChart({
+  transactions,
+  currency = "USD",
+  exchangeRate = null
+}: {
+  transactions: Transaction[];
+  currency?: Currency;
+  exchangeRate?: number | null;
+}) {
+  const { convertValue, getCurrencySymbol } = useCurrency({ exchangeRate, currency });
 
   const chartData = useMemo(() => {
     // 1. Filter expenses
@@ -74,18 +82,18 @@ export function ExpenseChart({ transactions }: { transactions: Transaction[] }) 
       return acc;
     }, {} as Record<string, { value: number; details: Record<string, number> }>);
 
-    // 3. Format for Recharts
+    // 3. Format for Recharts and apply currency conversion
     return Object.entries(grouped).map(([name, data], index) => ({
       name,
-      value: data.value,
+      value: convertValue(data.value),
       color: COLORS[index % COLORS.length],
       details: Object.entries(data.details).map(([catName, catValue]) => ({
         name: catName,
-        value: catValue,
+        value: convertValue(catValue),
       })).sort((a, b) => b.value - a.value),
     })).sort((a, b) => b.value - a.value);
 
-  }, [transactions]);
+  }, [transactions, convertValue]);
 
   const total = chartData.reduce((sum, d) => sum + d.value, 0);
 
@@ -108,18 +116,19 @@ export function ExpenseChart({ transactions }: { transactions: Transaction[] }) 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      const symbol = getCurrencySymbol();
       return (
         <div className="bg-background border border-border rounded-lg shadow-lg p-3 min-w-[200px]">
           <div className="font-bold border-b pb-1 mb-2 text-primary">
             {data.name}
-            <span className="float-right ml-4">${data.value.toFixed(2)}</span>
+            <span className="float-right ml-4">{symbol}{data.value.toFixed(2)}</span>
           </div>
           <div className="space-y-1">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {data.details.map((detail: any, idx: number) => (
               <div key={idx} className="text-sm flex justify-between gap-4">
                 <span className="text-muted-foreground">{detail.name}</span>
-                <span className="font-medium">${detail.value.toFixed(2)}</span>
+                <span className="font-medium">{symbol}{detail.value.toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -129,11 +138,15 @@ export function ExpenseChart({ transactions }: { transactions: Transaction[] }) 
     return null;
   };
 
-  // Custom label to show percentage inside the slice, or outside if it's too small
+  // Custom label to show percentage inside the slice, hide if it's too small
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-    const isSmall = percent <= 0.05;
-    const radius = isSmall ? outerRadius + 15 : innerRadius + (outerRadius - innerRadius) * 0.5;
+    // Hide labels for small percentages (5% or less)
+    if (percent <= 0.05) {
+      return null;
+    }
+
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const RADIAN = Math.PI / 180;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -142,8 +155,8 @@ export function ExpenseChart({ transactions }: { transactions: Transaction[] }) 
       <text
         x={x}
         y={y}
-        fill={isSmall ? "hsl(var(--foreground))" : "white"}
-        textAnchor={isSmall ? (x > cx ? 'start' : 'end') : "middle"}
+        fill="white"
+        textAnchor="middle"
         dominantBaseline="central"
         className="text-xs font-bold"
       >
@@ -167,7 +180,7 @@ export function ExpenseChart({ transactions }: { transactions: Transaction[] }) 
             </button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-3">
-            <p className="text-sm font-medium text-[#2d509e]">Desglose de tus gastos segun sus categorías</p>
+            <p className="text-sm font-medium text-[#2d509e]">Desglose de tus gastos segun sus categorías. Aquellos gastos menores al 5% no se muestran en el gráfico. </p>
           </PopoverContent>
         </Popover>
       </CardHeader>
@@ -203,7 +216,7 @@ export function ExpenseChart({ transactions }: { transactions: Transaction[] }) 
                   dominantBaseline="middle"
                   className="fill-foreground text-xl font-bold lg:text-2xl"
                 >
-                  ${total.toFixed(2)}
+                  {getCurrencySymbol()}{total.toFixed(2)}
                 </text>
               </PieChart>
             </ResponsiveContainer>
